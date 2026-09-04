@@ -1,0 +1,343 @@
+//! The background polling loop.
+//!
+//! Drives the per-provider [`RefreshSchedule`]s: works out which providers are
+//! due, polls exactly those, feeds each outcome back into its own schedule, and
+//! publishes the batch.
+//!
+//! Schedules are per provider, not global. A provider that is rate limited or
+//! backing off must not delay a healthy one, and a healthy one must not drag a
+//! backing-off provider back into a fast poll.
+
+use std::sync::Arc;
+use std::time::Duration;
+
+use tokio::sync::mpsc;
+use tokio::task::JoinHandle;
+use tokio::time::Instant;
+
+use crate::providers::registry::{ProviderFetch, ProviderRegistry};
+use crate::providers::schedule::{RefreshSchedule, DEFAULT_POLL_INTERVAL};
+
+/// Tuning for the polling loop.
+#[derive(Debug, Clone)]
+pub struct RefreshConfig {
+    /// Gap between polls of a healthy provider. Clamped up to the hard floor by
+    /// [`RefreshSchedule`].
+    pub interval: Duration,
+}
+
+impl Default for RefreshConfig {
+    fn default() -> Self {
+        Self {
+            interval: DEFAULT_POLL_INTERVAL,
+        }
+    }
+}
+
+/// State the loop keeps for one provider.
+struct ProviderState {
+    schedule: RefreshSchedule,
+    due_at: Instant,
+}
+
+/// Run the polling loop until the receiver is dropped.
+///
+/// Every provider is due immediately on the first pass, so the widget shows
+/// live data as soon as it starts rather than after one interval of nothing.
+pub async fn run_refresh_loop(
+    registry: Arc<ProviderRegistry>,
+    config: RefreshConfig,
+    sink: mpsc::Sender<Vec<ProviderFetch>>,
+) {
+    if registry.is_empty() {
+        return;
+    }
+
+    let now = Instant::now();
+    let mut states: Vec<ProviderState> = (0..registry.len())
+        .map(|_| ProviderState {
+            schedule: RefreshSchedule::new(config.interval),
+            due_at: now,
+        })
+        .collect();
+
+    loop {
+        let now = Instant::now();
+
+        let due: Vec<usize> = states
+            .iter()
+            .enumerate()
+            .filter(|(_, state)| state.due_at <= now)
+            .map(|(index, _)| index)
+            .collect();
+
+        if due.is_empty() {
+            // Sleep until the earliest deadline rather than waking on a fixed
+            // tick: a loop that wakes every second to discover nothing is due
+            // keeps the process from ever going idle.
+            let Some(next) = states.iter().map(|state| state.due_at).min() else {
+                return;
+            };
+            tokio::time::sleep_until(next).await;
+            continue;
+        }
+
+        let results = registry.fetch_indices(&due).await;
+
+        // Feed each outcome back into its own schedule. `fetch_indices` returns
+        // results in registry order, and `due` is built in that same order, so
+        // the two line up.
+        for (position, index) in due.iter().enumerate() {
+            let Some(fetch) = results.get(position) else {
+                // A provider whose task panicked produces no result. Give it
+                // the same treatment as a failure so it is retried later rather
+                // than being polled every pass forever.
+                if let Some(state) = states.get_mut(*index) {
+                    state.due_at = Instant::now() + state.schedule.interval();
+                }
+                continue;
+            };
+
+            if let Some(state) = states.get_mut(*index) {
+                let delay = match &fetch.result {
+                    Ok(_) => state.schedule.record_success(),
+                    Err(error) => state.schedule.record_failure(error),
+                };
+                state.due_at = Instant::now() + delay;
+            }
+        }
+
+        // A closed channel means the consumer is gone, so there is nobody left
+        // to poll for.
+        if sink.send(results).await.is_err() {
+            return;
+        }
+    }
+}
+
+/// Spawn [`run_refresh_loop`] as a background task.
+pub fn spawn_refresh_loop(
+    registry: Arc<ProviderRegistry>,
+    config: RefreshConfig,
+    sink: mpsc::Sender<Vec<ProviderFetch>>,
+) -> JoinHandle<()> {
+    tokio::spawn(run_refresh_loop(registry, config, sink))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::providers::error::UsageError;
+    use crate::providers::registry::tests::{stub, StubOutcome};
+    use crate::providers::schedule::{MAX_BACKOFF, MIN_POLL_INTERVAL};
+    use crate::providers::usage::ProviderId;
+
+    const INTERVAL: Duration = Duration::from_secs(300);
+
+    fn config() -> RefreshConfig {
+        RefreshConfig { interval: INTERVAL }
+    }
+
+    /// Collect one batch, failing the test rather than hanging if none arrives.
+    ///
+    /// The deadline is deliberately far longer than any delay under test. With
+    /// a paused clock the runtime auto-advances to the earliest pending
+    /// deadline, so a short safety net here would race the very timers being
+    /// asserted and fire first. Being long costs nothing: if no batch is coming,
+    /// the clock jumps straight to this deadline and the test fails at once.
+    const RECEIVE_DEADLINE: Duration = Duration::from_secs(3_600);
+
+    async fn next_batch(receiver: &mut mpsc::Receiver<Vec<ProviderFetch>>) -> Vec<ProviderFetch> {
+        tokio::time::timeout(RECEIVE_DEADLINE, receiver.recv())
+            .await
+            .expect("a batch should have been published")
+            .expect("the loop should still be running")
+    }
+
+    fn providers_in(batch: &[ProviderFetch]) -> Vec<ProviderId> {
+        batch.iter().map(|fetch| fetch.provider).collect()
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn polls_every_provider_immediately_on_startup() {
+        // Why: otherwise the widget shows nothing for the first interval after
+        // launch, which reads as broken.
+        let registry = Arc::new(ProviderRegistry::new(vec![
+            stub(ProviderId::Claude, StubOutcome::Succeeds { used_percent: 1.0 }),
+            stub(ProviderId::Codex, StubOutcome::Succeeds { used_percent: 2.0 }),
+        ]));
+        let (sender, mut receiver) = mpsc::channel(8);
+        let _task = spawn_refresh_loop(registry, config(), sender);
+
+        let batch = next_batch(&mut receiver).await;
+
+        assert_eq!(
+            providers_in(&batch),
+            vec![ProviderId::Claude, ProviderId::Codex]
+        );
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn a_healthy_provider_is_repolled_at_the_interval() {
+        let registry = Arc::new(ProviderRegistry::new(vec![stub(
+            ProviderId::Claude,
+            StubOutcome::Succeeds { used_percent: 1.0 },
+        )]));
+        let (sender, mut receiver) = mpsc::channel(8);
+        let _task = spawn_refresh_loop(registry, config(), sender);
+
+        next_batch(&mut receiver).await;
+
+        // Just short of the interval: nothing yet.
+        tokio::time::advance(INTERVAL - Duration::from_secs(1)).await;
+        assert!(receiver.try_recv().is_err(), "polled before it was due");
+
+        tokio::time::advance(Duration::from_secs(2)).await;
+        assert_eq!(providers_in(&next_batch(&mut receiver).await), vec![ProviderId::Claude]);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn a_failing_provider_backs_off_while_a_healthy_one_keeps_polling() {
+        // The reason schedules are per provider. A shared schedule would either
+        // hold the healthy provider back or drag the failing one forward.
+        let registry = Arc::new(ProviderRegistry::new(vec![
+            stub(ProviderId::Claude, StubOutcome::Fails),
+            stub(ProviderId::Codex, StubOutcome::Succeeds { used_percent: 2.0 }),
+        ]));
+        let (sender, mut receiver) = mpsc::channel(8);
+        let _task = spawn_refresh_loop(registry, config(), sender);
+
+        assert_eq!(next_batch(&mut receiver).await.len(), 2);
+
+        // Claude failed with Unauthorized, a permanent error, so it is parked
+        // at the ceiling. Codex is due again at the interval, alone.
+        tokio::time::advance(INTERVAL).await;
+        assert_eq!(
+            providers_in(&next_batch(&mut receiver).await),
+            vec![ProviderId::Codex]
+        );
+
+        tokio::time::advance(INTERVAL).await;
+        assert_eq!(
+            providers_in(&next_batch(&mut receiver).await),
+            vec![ProviderId::Codex]
+        );
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn a_transient_failure_doubles_the_delay() {
+        // A short provider timeout so the hang resolves quickly in test time.
+        let registry = Arc::new(
+            ProviderRegistry::new(vec![stub(ProviderId::Claude, StubOutcome::Hangs)])
+                .with_timeout(Duration::from_secs(1)),
+        );
+        let (sender, mut receiver) = mpsc::channel(8);
+        let _task = spawn_refresh_loop(registry, config(), sender);
+
+        let batch = next_batch(&mut receiver).await;
+        assert!(matches!(batch[0].result, Err(UsageError::Network { .. })));
+
+        // A timeout is transient, so the next attempt is at twice the interval,
+        // not at the interval.
+        tokio::time::advance(INTERVAL).await;
+        assert!(receiver.try_recv().is_err(), "backoff was not applied");
+
+        tokio::time::advance(INTERVAL).await;
+        assert_eq!(next_batch(&mut receiver).await.len(), 1);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn a_short_retry_after_is_still_floored() {
+        // The server asks us back in one second; the floor says one minute.
+        let registry = Arc::new(ProviderRegistry::new(vec![stub(
+            ProviderId::Claude,
+            StubOutcome::RateLimited {
+                retry_after_ms: Some(1_000),
+            },
+        )]));
+        let (sender, mut receiver) = mpsc::channel(8);
+        let _task = spawn_refresh_loop(registry, config(), sender);
+
+        next_batch(&mut receiver).await;
+
+        tokio::time::advance(MIN_POLL_INTERVAL - Duration::from_secs(2)).await;
+        assert!(
+            receiver.try_recv().is_err(),
+            "polled faster than the floor allows"
+        );
+
+        tokio::time::advance(Duration::from_secs(4)).await;
+        assert_eq!(next_batch(&mut receiver).await.len(), 1);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn a_long_retry_after_is_respected() {
+        let registry = Arc::new(ProviderRegistry::new(vec![stub(
+            ProviderId::Claude,
+            StubOutcome::RateLimited {
+                retry_after_ms: Some(900_000),
+            },
+        )]));
+        let (sender, mut receiver) = mpsc::channel(8);
+        let _task = spawn_refresh_loop(registry, config(), sender);
+
+        next_batch(&mut receiver).await;
+
+        tokio::time::advance(Duration::from_secs(890)).await;
+        assert!(receiver.try_recv().is_err(), "ignored the Retry-After delay");
+
+        tokio::time::advance(Duration::from_secs(20)).await;
+        assert_eq!(next_batch(&mut receiver).await.len(), 1);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn a_permanent_failure_is_parked_at_the_ceiling() {
+        let registry = Arc::new(ProviderRegistry::new(vec![stub(
+            ProviderId::Claude,
+            StubOutcome::Fails,
+        )]));
+        let (sender, mut receiver) = mpsc::channel(8);
+        let _task = spawn_refresh_loop(registry, config(), sender);
+
+        next_batch(&mut receiver).await;
+
+        tokio::time::advance(MAX_BACKOFF - Duration::from_secs(5)).await;
+        assert!(receiver.try_recv().is_err(), "retried a permanent failure too soon");
+
+        // But it is still retried eventually, so recovery after the user signs
+        // back in is automatic.
+        tokio::time::advance(Duration::from_secs(10)).await;
+        assert_eq!(next_batch(&mut receiver).await.len(), 1);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn the_loop_stops_when_the_consumer_goes_away() {
+        let registry = Arc::new(ProviderRegistry::new(vec![stub(
+            ProviderId::Claude,
+            StubOutcome::Succeeds { used_percent: 1.0 },
+        )]));
+        let (sender, receiver) = mpsc::channel(8);
+        let task = spawn_refresh_loop(registry, config(), sender);
+
+        drop(receiver);
+        tokio::time::advance(INTERVAL * 2).await;
+
+        tokio::time::timeout(Duration::from_secs(1), task)
+            .await
+            .expect("the loop should have exited")
+            .expect("the loop should not have panicked");
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn an_empty_registry_exits_immediately() {
+        let registry = Arc::new(ProviderRegistry::new(vec![]));
+        let (sender, _receiver) = mpsc::channel(8);
+
+        let task = spawn_refresh_loop(registry, config(), sender);
+
+        tokio::time::timeout(Duration::from_secs(1), task)
+            .await
+            .expect("the loop should have exited")
+            .expect("the loop should not have panicked");
+    }
+}

@@ -92,15 +92,37 @@ impl ProviderRegistry {
         self.providers.is_empty()
     }
 
+    /// Every provider index, in registry order.
+    pub fn all_indices(&self) -> Vec<usize> {
+        (0..self.providers.len()).collect()
+    }
+
+    /// The provider occupying an index, if it exists.
+    pub fn id_at(&self, index: usize) -> Option<ProviderId> {
+        self.providers.get(index).map(UsageProvider::id)
+    }
+
     /// Poll every provider concurrently and collect the outcomes.
+    pub async fn fetch_all(self: &Arc<Self>) -> Vec<ProviderFetch> {
+        self.fetch_indices(&self.all_indices()).await
+    }
+
+    /// Poll the given providers concurrently and collect the outcomes.
+    ///
+    /// Taking a subset matters because schedules are per provider: when one is
+    /// backing off and another is healthy, only the healthy one is due, and
+    /// polling both would defeat the backoff.
     ///
     /// Results come back in registry order, not completion order: the rail
     /// renders in this order, and letting a faster provider reorder the badges
     /// between polls would make them jump around.
-    pub async fn fetch_all(self: &Arc<Self>) -> Vec<ProviderFetch> {
+    pub async fn fetch_indices(self: &Arc<Self>, indices: &[usize]) -> Vec<ProviderFetch> {
         let mut tasks = JoinSet::new();
 
-        for index in 0..self.providers.len() {
+        for &index in indices {
+            if index >= self.providers.len() {
+                continue;
+            }
             let registry = Arc::clone(self);
 
             tasks.spawn(async move {
@@ -127,7 +149,7 @@ impl ProviderRegistry {
             });
         }
 
-        let mut collected: Vec<(usize, ProviderFetch)> = Vec::with_capacity(self.providers.len());
+        let mut collected: Vec<(usize, ProviderFetch)> = Vec::with_capacity(indices.len());
 
         while let Some(joined) = tasks.join_next().await {
             match joined {
@@ -162,6 +184,7 @@ pub(crate) mod tests {
         /// Sleeps past any sane timeout, standing in for a wedged provider.
         Hangs,
         Panics,
+        RateLimited { retry_after_ms: Option<i64> },
     }
 
     impl StubProvider {
@@ -186,15 +209,18 @@ pub(crate) mod tests {
                 }),
                 StubOutcome::Fails => Err(UsageError::Unauthorized),
                 StubOutcome::Hangs => {
-                    tokio::time::sleep(Duration::from_secs(3_600)).await;
+                    tokio::time::sleep(Duration::from_secs(86_400)).await;
                     unreachable!("the timeout fires long before this")
                 }
                 StubOutcome::Panics => panic!("deliberate panic from a test provider"),
+                StubOutcome::RateLimited { retry_after_ms } => {
+                    Err(UsageError::RateLimited { retry_after_ms })
+                }
             }
         }
     }
 
-    fn stub(id: ProviderId, outcome: StubOutcome) -> AnyProvider {
+    pub fn stub(id: ProviderId, outcome: StubOutcome) -> AnyProvider {
         AnyProvider::Stub(StubProvider::new(id, outcome))
     }
 
