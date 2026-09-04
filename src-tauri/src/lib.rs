@@ -1,3 +1,4 @@
+pub mod cache;
 pub mod providers;
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/

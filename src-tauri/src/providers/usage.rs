@@ -5,7 +5,7 @@
 //! modules translate into these types, and everything above this layer works
 //! only in terms of them.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// A five-hour session window, in minutes.
 pub const SESSION_WINDOW_MINUTES: u32 = 300;
@@ -21,7 +21,7 @@ pub const WEEKLY_WINDOW_MINUTES: u32 = 10_080;
 /// since the fetch, so it belongs to the UI and is recomputed there on every
 /// render. Baking a formatted string in here would freeze a countdown at the
 /// moment of the request.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UsageWindow {
     /// Percentage of the window consumed, clamped to `0.0..=100.0`.
@@ -33,7 +33,7 @@ pub struct UsageWindow {
 }
 
 /// Which provider a usage snapshot came from.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ProviderId {
     Claude,
@@ -55,7 +55,7 @@ impl ProviderId {
 /// Both windows are optional independently: a provider may report a session
 /// window and no weekly window, or neither, depending on the plan. `None` means
 /// "not reported", which the UI renders as absent — never as zero.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProviderUsage {
     pub provider: ProviderId,
