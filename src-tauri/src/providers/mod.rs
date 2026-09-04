@@ -7,5 +7,6 @@ pub mod credentials;
 pub mod error;
 pub mod http;
 pub mod provider;
+pub mod registry;
 pub mod timestamps;
 pub mod usage;
