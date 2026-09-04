@@ -64,7 +64,7 @@ impl UsageProvider for ClaudeProvider {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::providers::claude::fetch::build_client;
+    use crate::providers::http::build_client;
 
     #[test]
     fn reports_its_identity() {
