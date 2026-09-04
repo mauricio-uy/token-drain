@@ -1,0 +1,21 @@
+# Normalize all text files to LF in the repository and in the working tree.
+# Without this, core.autocrlf on Windows produces whole-file phantom diffs the
+# moment the repo is touched from another machine or a Linux CI runner.
+* text=auto eol=lf
+
+# Windows batch files are the one case that genuinely needs CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary assets: never diffed, never line-ending converted.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.icns binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
