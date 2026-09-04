@@ -2,4 +2,5 @@
 //! provider's usage endpoint.
 
 pub mod claude;
+pub mod usage;
 pub mod timestamps;
