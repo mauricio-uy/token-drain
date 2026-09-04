@@ -3,5 +3,6 @@
 
 pub mod claude;
 pub mod error;
-pub mod usage;
+pub mod provider;
 pub mod timestamps;
+pub mod usage;
