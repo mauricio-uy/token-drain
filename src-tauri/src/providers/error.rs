@@ -7,7 +7,7 @@
 //! Security: no variant carries a token, a request header, or a response body.
 //! Only status codes and coarse failure kinds cross this boundary.
 
-use crate::providers::claude::credentials::CredentialError;
+use crate::providers::credentials::CredentialError;
 
 /// Why a network request could not be completed.
 ///
