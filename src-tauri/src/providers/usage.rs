@@ -32,6 +32,42 @@ pub struct UsageWindow {
     pub resets_at: Option<i64>,
 }
 
+/// Which provider a usage snapshot came from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ProviderId {
+    Claude,
+    Codex,
+}
+
+impl ProviderId {
+    /// Stable identifier used in caches and log lines.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Claude => "claude",
+            Self::Codex => "codex",
+        }
+    }
+}
+
+/// A complete usage snapshot for one provider at one moment.
+///
+/// Both windows are optional independently: a provider may report a session
+/// window and no weekly window, or neither, depending on the plan. `None` means
+/// "not reported", which the UI renders as absent — never as zero.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderUsage {
+    pub provider: ProviderId,
+    pub session: Option<UsageWindow>,
+    pub weekly: Option<UsageWindow>,
+    /// Plan name, when the provider states one.
+    pub plan: Option<String>,
+    /// Unix milliseconds at which this snapshot was retrieved. Drives the
+    /// "stale" presentation after a restart.
+    pub fetched_at: i64,
+}
+
 impl UsageWindow {
     /// Build a window from a raw percentage, clamping it into range.
     ///
