@@ -1,0 +1,4 @@
+//! Provider integrations: reading local CLI credentials and querying each
+//! provider's usage endpoint.
+
+pub mod claude;
