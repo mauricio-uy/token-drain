@@ -1,0 +1,42 @@
+/*
+ * Base layout for a chromeless desktop widget.
+ *
+ * The window is a fixed-size overlay with no OS decorations, so the page must
+ * never scroll and must never introduce margins of its own: any gap here shows
+ * up as a transparent seam around the widget, and any scrollbar is a visible
+ * artifact on top of the user's desktop.
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+/*
+ * A widget is not a document: text selection and image dragging are accidental
+ * interactions here, not features.
+ */
+body {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+img {
+  -webkit-user-drag: none;
+  user-select: none;
+}
