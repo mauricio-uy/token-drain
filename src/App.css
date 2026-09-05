@@ -33,3 +33,12 @@
   writing-mode: vertical-rl;
   letter-spacing: 0.04em;
 }
+
+/*
+ * Hover feedback exists to prove the window actually receives mouse events
+ * while the cursor is over the rectangle. If the click-through toggle were
+ * inverted or misaligned, the colour would never change.
+ */
+.probe-rect.is-hovered {
+  background: #00c2ff;
+}

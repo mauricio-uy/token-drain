@@ -1,5 +1,6 @@
 //! Placing and keeping the rail window where it belongs.
 
+pub mod interaction;
 pub mod placement;
 
 use std::time::Duration;

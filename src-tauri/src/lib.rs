@@ -5,6 +5,7 @@ pub mod window;
 
 use tauri::Manager;
 
+use window::interaction::{set_interactive_regions, InteractiveRegions};
 use window::placement::RailSide;
 
 /// Label of the rail window, matching `tauri.conf.json`.
@@ -14,12 +15,15 @@ const RAIL_WINDOW_LABEL: &str = "rail";
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .manage(InteractiveRegions::default())
+        .invoke_handler(tauri::generate_handler![set_interactive_regions])
         .setup(|app| {
             if let Some(rail) = app.get_webview_window(RAIL_WINDOW_LABEL) {
                 // Dock once immediately, so the window is never briefly visible
                 // at the OS default position before jumping into place.
                 window::dock(&rail, RailSide::default());
-                window::spawn_dock_watcher(rail, RailSide::default());
+                window::spawn_dock_watcher(rail.clone(), RailSide::default());
+                window::interaction::spawn_cursor_watcher(app.handle().clone(), rail);
             }
 
             Ok(())
