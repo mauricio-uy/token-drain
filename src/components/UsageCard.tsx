@@ -44,29 +44,24 @@ function WindowRow({
 }
 
 /**
- * The hover card: what the badge's ring cannot say on its own.
+ * The contents of the hover card: what the badge's ring cannot say on its own.
  *
  * The ring carries one number. This carries both windows, what each is called,
  * and when each comes back — which is the part that actually decides whether to
  * keep working or stop.
+ *
+ * Deliberately renders no surface of its own. The card's background, radius,
+ * shadow and tail belong to the persistent container in `Rail`, so they survive
+ * a change of provider while only this content cross-fades.
  */
-export function UsageCard({
-  view,
-  now,
-  tailOffset,
-}: {
-  view: ProviderView;
-  now: number;
-  /** Distance from the card's top to the centre of the tail, in pixels. */
-  tailOffset: number;
-}) {
+export function UsageCard({ view, now }: { view: ProviderView; now: number }) {
   // Falls back to the last successful snapshot so a failing provider still
   // shows what it knew, clearly labelled, instead of an empty card.
   const usage = view.usage ?? view.lastKnown;
   const showingLastKnown = view.usage === null && view.lastKnown !== null;
 
   return (
-    <div className="card" style={{ "--tail-offset": `${tailOffset}px` } as React.CSSProperties}>
+    <div className="card-content">
       <div className="card-head">
         <span className="card-head-mark">
           <ProviderLogo provider={view.provider} size={16} />
@@ -96,7 +91,6 @@ export function UsageCard({
         <p className="card-note">No limits reported.</p>
       )}
 
-      <span className="card-tail" aria-hidden="true" />
     </div>
   );
 }

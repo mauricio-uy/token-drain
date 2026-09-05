@@ -68,9 +68,24 @@
 
 
 /*
- * The open card. Positioned from the root rather than the rail so its vertical
+ * The card. Positioned from the root rather than the rail so its vertical
  * placement is independent of how the badges happen to be stacked.
+ *
+ * `top: 0` with the vertical position carried by a transform: transforms are
+ * composited, so the card can be sprung around without forcing layout on every
+ * frame.
  */
 .rail-card {
   position: absolute;
+  top: 0;
+  transform-origin: right center;
+}
+
+/* Dev-only overlay proving the card element is never remounted. */
+.rail-debug {
+  position: absolute;
+  right: 8px;
+  bottom: -18px;
+  font: 500 10px/1 ui-monospace, monospace;
+  color: var(--text-muted);
 }

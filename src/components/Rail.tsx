@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import "./Rail.css";
 import { ProviderBadge } from "./ProviderBadge";
 import { UsageCard } from "./UsageCard";
@@ -11,15 +12,45 @@ const CARD_GAP = 14;
 /** Keep the card this far from the window edges. */
 const EDGE_MARGIN = 8;
 
+/**
+ * Motion for the card as it follows the pointer between badges.
+ *
+ * A spring rather than an ease: the card is being dragged along by the cursor,
+ * and a duration-based curve always finishes late or early relative to where the
+ * pointer actually went. Damped hard enough not to overshoot, since a card that
+ * bounces past its badge and settles back reads as sloppy rather than lively.
+ */
+const FOLLOW_SPRING = { type: "spring", stiffness: 460, damping: 40, mass: 0.9 } as const;
+
+/** How long the outgoing contents take to give way to the incoming ones. */
+const CROSSFADE = { duration: 0.13, ease: "easeOut" } as const;
+
 type Placement = { top: number; tailOffset: number };
 
 /**
- * The rail: an opaque strip docked to the screen edge, carrying one badge per
- * provider, with a card that opens beside whichever badge the pointer is on.
+ * Counts how many times the card element has been mounted, for the dev overlay.
  *
- * Everything outside the rail and the open card is transparent and
- * click-through, so both report their bounds as the regions that should receive
- * the mouse.
+ * The number must not change while the pointer moves between badges. If it does,
+ * the card is being torn down and rebuilt rather than moved, which is exactly
+ * the implementation this design rules out.
+ */
+let cardMountCount = 0;
+
+const SHOW_MOUNT_PROBE = import.meta.env.VITE_DEBUG_RAIL === "1";
+
+function CardMountProbe() {
+  const [mount] = useState(() => ++cardMountCount);
+  return <span className="rail-debug">card mounts: {mount}</span>;
+}
+
+/**
+ * The rail, with a card that follows the pointer between badges.
+ *
+ * **The card is one element for the life of the app.** It is rendered
+ * unconditionally and hidden by opacity rather than being mounted and unmounted,
+ * so moving from one badge to another slides a single card instead of tearing
+ * one down and building another. Only its contents are replaced, and those
+ * cross-fade.
  */
 export function Rail({ views }: { views: ProviderView[] }) {
   const rootRef = useRef<HTMLDivElement>(null);
@@ -52,8 +83,8 @@ export function Rail({ views }: { views: ProviderView[] }) {
     // Centre on the badge, then keep the whole card on screen. Clamping the top
     // rather than the tail is what lets the tail keep pointing at the badge even
     // when the card has been pushed away from it.
-    const lowest = rootBox.height - cardHeight - EDGE_MARGIN;
-    const top = Math.min(Math.max(badgeCentre - cardHeight / 2, EDGE_MARGIN), Math.max(lowest, EDGE_MARGIN));
+    const lowest = Math.max(rootBox.height - cardHeight - EDGE_MARGIN, EDGE_MARGIN);
+    const top = Math.min(Math.max(badgeCentre - cardHeight / 2, EDGE_MARGIN), lowest);
 
     setPlacement({ top, tailOffset: badgeCentre - top });
   }, [activeView, views]);
@@ -62,15 +93,44 @@ export function Rail({ views }: { views: ProviderView[] }) {
 
   return (
     <div ref={rootRef} className="rail-root" onMouseLeave={() => setActive(null)}>
-      {activeView && (
-        <div
-          ref={cardRef}
-          className="rail-card"
-          style={{ top: placement.top, right: `calc(var(--rail-width) + ${CARD_GAP}px)` }}
-        >
-          <UsageCard view={activeView} now={now} tailOffset={placement.tailOffset} />
-        </div>
-      )}
+      <motion.div
+        ref={cardRef}
+        className="rail-card card-surface"
+        style={{ right: `calc(var(--rail-width) + ${CARD_GAP}px)` }}
+        animate={{
+          y: placement.top,
+          opacity: activeView ? 1 : 0,
+          scale: activeView ? 1 : 0.97,
+        }}
+        transition={{ ...FOLLOW_SPRING, opacity: CROSSFADE, scale: CROSSFADE }}
+        // Hidden from the pointer and from assistive technology when closed;
+        // it is still in the tree, just not participating.
+        aria-hidden={!activeView}
+        inert={!activeView}
+      >
+        <AnimatePresence mode="popLayout" initial={false}>
+          {activeView && (
+            <motion.div
+              key={activeView.provider}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={CROSSFADE}
+            >
+              <UsageCard view={activeView} now={now} />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {SHOW_MOUNT_PROBE && <CardMountProbe />}
+
+        <motion.span
+          className="card-tail"
+          aria-hidden="true"
+          animate={{ y: placement.tailOffset - 10 }}
+          transition={FOLLOW_SPRING}
+        />
+      </motion.div>
 
       <div ref={railRef} className="rail">
         {views.map((view) => (

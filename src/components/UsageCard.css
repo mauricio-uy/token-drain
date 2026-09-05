@@ -1,14 +1,17 @@
-.card {
-  position: relative;
+/*
+ * The card surface. Applied to the persistent container so a change of provider
+ * moves and reshapes one element rather than replacing it.
+ *
+ * The card floats clear of the rail, so unlike the rail it does cast a shadow —
+ * that is what separates it from whatever is behind the window.
+ */
+.card-surface {
   width: 262px;
   padding: 14px 16px 16px;
   background: var(--surface-raised);
   border-radius: 18px;
   color: var(--text);
   font: 400 12px/1.35 system-ui, sans-serif;
-
-  /* The card floats clear of the rail, so unlike the rail it does cast a
-     shadow — that is what separates it from whatever is behind the window. */
   box-shadow: 0 12px 32px rgb(0 0 0 / 45%), 0 2px 6px rgb(0 0 0 / 35%);
 }
 
@@ -22,7 +25,7 @@
 .card-tail {
   position: absolute;
   right: -9px;
-  top: calc(var(--tail-offset, 50%) - 10px);
+  top: 0;
   width: 0;
   height: 0;
   border-top: 10px solid transparent;

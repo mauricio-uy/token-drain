@@ -119,7 +119,9 @@ export function BadgeGallery() {
         <h2 className="gallery-title">cards</h2>
         <div className="gallery-cards">
           {cardSamples(now).map((view, index) => (
-            <UsageCard key={index} view={view} now={now} tailOffset={40} />
+            <div key={index} className="card-surface">
+                <UsageCard view={view} now={now} />
+              </div>
           ))}
         </div>
       </section>
