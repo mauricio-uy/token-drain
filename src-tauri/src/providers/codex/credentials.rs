@@ -212,6 +212,25 @@ mod tests {
     }
 
     #[test]
+    fn reading_never_modifies_the_file() {
+        // Same guarantee as the Claude reader: this file belongs to the CLI and
+        // is never written by this app.
+        let path = std::env::temp_dir().join("tok-ching-readonly-codex.json");
+        let original = format!(r#"{{"tokens": {{"access_token": "{FAKE_ACCESS_TOKEN}"}}}}"#);
+        std::fs::write(&path, &original).expect("should write fixture");
+        let before = std::fs::metadata(&path).expect("metadata").modified().ok();
+
+        read_credentials_from(&path).expect("should read");
+
+        let after_content = std::fs::read_to_string(&path).expect("should still exist");
+        let after = std::fs::metadata(&path).expect("metadata").modified().ok();
+        std::fs::remove_file(&path).ok();
+
+        assert_eq!(after_content, original, "the credentials file was rewritten");
+        assert_eq!(before, after, "the credentials file was touched");
+    }
+
+    #[test]
     fn debug_rendering_redacts_the_token_and_account() {
         let credentials = CodexCredentials {
             access_token: FAKE_ACCESS_TOKEN.to_owned(),

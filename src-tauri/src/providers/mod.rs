@@ -8,6 +8,7 @@ pub mod error;
 pub mod http;
 pub mod provider;
 pub mod refresh;
+pub mod remediation;
 pub mod registry;
 pub mod schedule;
 pub mod timestamps;

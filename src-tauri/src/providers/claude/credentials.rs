@@ -208,6 +208,29 @@ mod tests {
     }
 
     #[test]
+    fn reading_never_modifies_the_file() {
+        // Guards the read-only decision behaviorally rather than by convention.
+        // This file belongs to the CLI: writing to it races the CLI's own token
+        // rotation and can strand a single-use refresh token, signing the user
+        // out of the tool they actually depend on.
+        let path = std::env::temp_dir().join("tok-ching-readonly-claude.json");
+        let original = format!(
+            r#"{{"claudeAiOauth": {{"accessToken": "{FAKE_ACCESS_TOKEN}", "expiresAt": 1}}}}"#
+        );
+        std::fs::write(&path, &original).expect("should write fixture");
+        let before = std::fs::metadata(&path).expect("metadata").modified().ok();
+
+        read_credentials_from(&path).expect("should read");
+
+        let after_content = std::fs::read_to_string(&path).expect("should still exist");
+        let after = std::fs::metadata(&path).expect("metadata").modified().ok();
+        std::fs::remove_file(&path).ok();
+
+        assert_eq!(after_content, original, "the credentials file was rewritten");
+        assert_eq!(before, after, "the credentials file was touched");
+    }
+
+    #[test]
     fn debug_rendering_redacts_the_token() {
         let credentials = ClaudeCredentials {
             access_token: FAKE_ACCESS_TOKEN.to_owned(),
