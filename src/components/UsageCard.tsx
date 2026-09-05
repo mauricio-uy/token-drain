@@ -1,7 +1,7 @@
 import "./UsageCard.css";
 import { ProviderLogo } from "./ProviderLogo";
 import { severityOf } from "./ProviderBadge";
-import { formatReset } from "../lib/format";
+import { formatAge, formatReset } from "../lib/format";
 import type { ProviderView, UsageWindow } from "../lib/usage";
 
 const PROVIDER_TITLES: Record<string, string> = {
@@ -60,6 +60,12 @@ export function UsageCard({ view, now }: { view: ProviderView; now: number }) {
   const usage = view.usage ?? view.lastKnown;
   const showingLastKnown = view.usage === null && view.lastKnown !== null;
 
+  // Stale figures are real, just not current. The age is what decides whether to
+  // trust them, so the card says it: "55% used" means something quite different
+  // an hour old than three days old.
+  const staleAge =
+    view.state === "stale" && usage ? formatAge(usage.fetchedAt, now) : null;
+
   return (
     <div className="card-content">
       <div className="card-head">
@@ -79,8 +85,12 @@ export function UsageCard({ view, now }: { view: ProviderView; now: number }) {
       )}
 
       {showingLastKnown && usage && (
-        <p className="card-stale">Last known figures</p>
+        <p className="card-stale">
+          Last known figures{usage.fetchedAt ? ` · ${formatAge(usage.fetchedAt, now)}` : ""}
+        </p>
       )}
+
+      {staleAge && <p className="card-stale">Updated {staleAge}</p>}
 
       {usage?.session && (
         <WindowRow label="Current session" window={usage.session} now={now} />
@@ -88,7 +98,12 @@ export function UsageCard({ view, now }: { view: ProviderView; now: number }) {
       {usage?.weekly && <WindowRow label="All models" window={usage.weekly} now={now} />}
 
       {!usage?.session && !usage?.weekly && !view.remediation && (
-        <p className="card-note">No limits reported.</p>
+        <p className="card-note">
+          {/* Nothing has been fetched yet, which is not the same as a provider
+              that answered and reported no limits. Saying the latter would be a
+              small lie the user has no way to check. */}
+          {view.state === "pending" ? "Checking…" : "No limits reported."}
+        </p>
       )}
 
     </div>

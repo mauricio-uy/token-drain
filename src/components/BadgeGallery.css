@@ -31,3 +31,16 @@
   flex-wrap: wrap;
   gap: 28px;
 }
+
+.gallery-card-labelled {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.gallery-card-tag {
+  font: 600 10px/1 ui-monospace, monospace;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}

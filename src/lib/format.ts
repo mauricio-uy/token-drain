@@ -40,6 +40,26 @@ export function formatReset(resetsAt: number | null, now: number): string | null
 }
 
 /**
+ * How long ago a snapshot was taken, in words.
+ *
+ * Only shown for figures that are not current, where the age is the thing that
+ * decides whether to trust them: "55% used" means something quite different an
+ * hour old than three days old.
+ */
+export function formatAge(fetchedAt: number, now: number): string {
+  const elapsed = Math.max(0, now - fetchedAt);
+
+  if (elapsed < 90_000) return "just now";
+  if (elapsed < HOUR) return `${Math.round(elapsed / MINUTE)} min ago`;
+
+  const hours = Math.round(elapsed / HOUR);
+  if (hours < 24) return `${hours} h ago`;
+
+  const days = Math.round(hours / 24);
+  return days === 1 ? "yesterday" : `${days} days ago`;
+}
+
+/**
  * A clock that ticks often enough for a minute countdown to stay honest.
  *
  * Thirty seconds, so "in 3 min" is never more than half a minute stale, and the

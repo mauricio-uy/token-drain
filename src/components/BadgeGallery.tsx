@@ -94,11 +94,68 @@ function cardSamples(now: number) {
   return [soon, failing];
 }
 
+/**
+ * A card for every non-ok state.
+ *
+ * The card has to say more than the badge can: what went wrong, whether the app
+ * is already handling it, and the exact command to run when it is not. Seeing
+ * them side by side is the only way to catch copy that reads fine alone but
+ * contradicts its neighbour.
+ */
+function stateCards(now: number): ProviderView[] {
+  const lastKnown = {
+    provider: "claude",
+    session: { usedPercent: 55, windowMinutes: 300, resetsAt: now + 2 * HOUR },
+    weekly: { usedPercent: 62, windowMinutes: 10080, resetsAt: now + 60 * HOUR },
+    plan: "sample",
+    fetchedAt: now - 3 * HOUR,
+  };
+
+  const failing = (state: BadgeState, message: string, command: string | null, resolvesItself: boolean): ProviderView => ({
+    provider: "claude",
+    state,
+    usage: null,
+    lastKnown,
+    remediation: { message, command, resolvesItself },
+  });
+
+  const stale = sample("claude", "stale", 55);
+  if (stale.usage) {
+    stale.usage.session = { usedPercent: 55, windowMinutes: 300, resetsAt: now + 2 * HOUR };
+    stale.usage.weekly = { usedPercent: 62, windowMinutes: 10080, resetsAt: now + 60 * HOUR };
+    // A realistic age. The fixture defaulted to the epoch, which rendered as
+    // "updated 20701 days ago" and made the age line look broken.
+    stale.usage.fetchedAt = now - 3 * HOUR;
+  }
+
+  return [
+    { provider: "claude", state: "pending", usage: null, lastKnown: null, remediation: null },
+    stale,
+    failing("reauth", "Claude rejected the saved login. Sign in again.", "claude", false),
+    failing("unavailable", "Could not reach Claude. Retrying later.", null, true),
+    failing("error", "Claude changed its usage format. This app needs an update.", null, false),
+  ];
+}
+
 export function BadgeGallery() {
   const now = Date.now();
 
   return (
     <div className="gallery">
+      <section className="gallery-row">
+        <h2 className="gallery-title">state cards</h2>
+        <div className="gallery-cards">
+          {stateCards(now).map((view, index) => (
+            <div key={index} className="gallery-card-labelled">
+              <span className="gallery-card-tag">{view.state}</span>
+              <div className="card-surface">
+                <UsageCard view={view} now={now} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
       {ROWS.map((row) => (
         <section key={row.title} className="gallery-row">
           <h2 className="gallery-title">{row.title}</h2>
@@ -120,11 +177,12 @@ export function BadgeGallery() {
         <div className="gallery-cards">
           {cardSamples(now).map((view, index) => (
             <div key={index} className="card-surface">
-                <UsageCard view={view} now={now} />
-              </div>
+              <UsageCard view={view} now={now} />
+            </div>
           ))}
         </div>
       </section>
+
     </div>
   );
 }
