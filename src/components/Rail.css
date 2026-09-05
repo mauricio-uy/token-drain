@@ -1,0 +1,75 @@
+.rail-root {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  background: transparent;
+}
+
+/*
+ * The rail itself: flush against the window's right edge, which the shell has
+ * already docked to the screen's work area edge.
+ */
+.rail {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+
+  width: var(--rail-width);
+  padding: var(--rail-padding) 0;
+  background: var(--surface);
+  border-radius: var(--rail-radius) 0 0 var(--rail-radius);
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--rail-gap);
+}
+
+/*
+ * Concave fillets where the rail meets the screen edge.
+ *
+ * Without these the rail stops against the edge with a hard right angle, which
+ * reads as a floating panel that happens to be touching the side. The inward
+ * curve is what makes it look carved out of the edge instead.
+ *
+ * Each fillet is a square painted with a radial gradient: transparent inside a
+ * quarter circle centred on the corner nearest the rail, opaque outside it. The
+ * half-pixel gap between the two gradient stops is what keeps the curve from
+ * aliasing into a visible staircase.
+ */
+.rail::before,
+.rail::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  width: var(--rail-corner);
+  height: var(--rail-corner);
+  pointer-events: none;
+}
+
+.rail::before {
+  top: calc(-1 * var(--rail-corner));
+  background: radial-gradient(
+    circle at 0 0,
+    transparent var(--rail-corner),
+    var(--surface) calc(var(--rail-corner) + 0.5px)
+  );
+}
+
+.rail::after {
+  bottom: calc(-1 * var(--rail-corner));
+  background: radial-gradient(
+    circle at 0 100%,
+    transparent var(--rail-corner),
+    var(--surface) calc(var(--rail-corner) + 0.5px)
+  );
+}
+
+/* Placeholder slot, replaced by the real badge in Step 5.2. */
+.rail-slot {
+  width: var(--badge-size);
+  height: var(--badge-size);
+  border-radius: 50%;
+  border: var(--badge-ring) solid var(--level-track);
+}

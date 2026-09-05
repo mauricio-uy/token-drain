@@ -1,0 +1,35 @@
+/*
+ * Design tokens.
+ *
+ * The widget is deliberately monochrome except for the progress rings. Colour
+ * in this UI means one thing — how close a quota is to running out — so
+ * spending it anywhere else would dilute the only signal that matters.
+ */
+
+:root {
+  /* Surfaces. Opaque, not translucent: the reference design has no blur
+     anywhere, which also keeps us clear of the Windows acrylic redraw issues. */
+  --surface: #000000;
+  --surface-raised: #101014;
+  --surface-line: #26262f;
+
+  --text: #f4f4f6;
+  --text-muted: #9a9aa6;
+
+  /* Severity. Green while there is room, yellow when it is worth knowing,
+     orange once it is worth acting on. */
+  --level-ok: #35c07a;
+  --level-warn: #e6c94a;
+  --level-high: #f26d3d;
+  --level-track: #2a2a33;
+
+  /* Rail geometry. */
+  --rail-width: 108px;
+  --rail-radius: 28px;
+  --rail-corner: 22px;
+  --rail-padding: 22px;
+  --rail-gap: 26px;
+
+  --badge-size: 56px;
+  --badge-ring: 4px;
+}
