@@ -1,0 +1,17 @@
+/*
+ * The box a provider mark is drawn into.
+ *
+ * The size comes from the caller as an explicit square, and the glyph fills it,
+ * so two marks with different intrinsic viewBoxes still line up. `line-height: 0`
+ * stops the inline box from adding a descender's worth of space under the badge.
+ */
+.provider-mark {
+  display: block;
+  line-height: 0;
+}
+
+.provider-mark svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
