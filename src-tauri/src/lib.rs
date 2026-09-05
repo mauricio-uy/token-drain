@@ -24,6 +24,25 @@ use window::interaction::{set_interactive_regions, InteractiveRegions};
 /// Label of the rail window, matching `tauri.conf.json`.
 pub const RAIL_WINDOW_LABEL: &str = "rail";
 
+/// Where the cache and settings live, with a fallback.
+///
+/// Resolving this used to be fatal: `app_data_dir()?` from the setup hook meant
+/// that on any environment where the path could not be worked out, the whole
+/// app panicked and died — no window, no tray icon, no message. Nothing else
+/// in this app treats its own storage as essential: the cache opens
+/// permissively, the settings fall back to defaults, and both are designed so a
+/// widget with no memory still works. Failing to find the directory should be
+/// no worse than finding it empty.
+///
+/// The fallback is under the temp directory, so figures do not survive a reboot
+/// there. That is a degraded widget rather than an absent one, which is the
+/// right trade for something whose whole job is to be glanceable.
+fn data_directory(app: &tauri::AppHandle) -> std::path::PathBuf {
+    app.path()
+        .app_data_dir()
+        .unwrap_or_else(|_| std::env::temp_dir().join("tok-ching"))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -63,7 +82,7 @@ pub fn run() {
             set_launch_at_login
         ])
         .setup(|app| {
-            let data_directory = app.path().app_data_dir()?;
+            let data_directory = data_directory(app.handle());
 
             // Settings first: the rail is docked using them, so loading them
             // afterwards would place the window once at the default position
