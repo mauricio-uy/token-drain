@@ -10,11 +10,13 @@ use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Manager};
 
 use crate::runtime::UsageState;
-use crate::window::placement::RailSide;
+use crate::settings::SettingsStore;
+use crate::window::settings_window;
 use crate::RAIL_WINDOW_LABEL;
 
 const MENU_REFRESH: &str = "refresh";
 const MENU_VISIBLE: &str = "visible";
+const MENU_SETTINGS: &str = "settings";
 const MENU_QUIT: &str = "quit";
 
 /// Whether the rail is on screen right now.
@@ -38,7 +40,9 @@ fn set_rail_visible(app: &AppHandle, visible: bool) {
         // was hidden — a display unplugged, the taskbar moved — and the dock
         // watcher would otherwise leave it in the wrong place for up to its
         // whole interval, which is exactly the moment the user is looking.
-        crate::window::dock(&rail, RailSide::default());
+        if let Some(settings) = app.try_state::<std::sync::Arc<SettingsStore>>() {
+            crate::window::dock(&rail, &settings.get());
+        }
     } else {
         let _ = rail.hide();
     }
@@ -61,6 +65,7 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
         None::<&str>,
     )?;
 
+    let settings = MenuItem::with_id(app, MENU_SETTINGS, "Settings…", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, MENU_QUIT, "Quit tok-ching", true, None::<&str>)?;
 
     let menu = Menu::with_items(
@@ -69,6 +74,7 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
             &refresh,
             &visible,
             &PredefinedMenuItem::separator(app)?,
+            &settings,
             &quit,
         ],
     )?;
@@ -93,6 +99,7 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
                 // was asked for. If show() failed, the menu should say so.
                 let _ = checkbox.set_checked(rail_is_visible(app));
             }
+            MENU_SETTINGS => settings_window::open(app),
             MENU_QUIT => app.exit(0),
             _ => {}
         });

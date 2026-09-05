@@ -17,6 +17,21 @@ use tokio::time::Instant;
 
 use crate::providers::registry::{ProviderFetch, ProviderRegistry};
 use crate::providers::schedule::{RefreshSchedule, DEFAULT_POLL_INTERVAL, MIN_POLL_INTERVAL};
+use crate::providers::usage::ProviderId;
+
+/// What the loop should be doing right now.
+///
+/// Consulted on every pass rather than captured at startup, which is what lets a
+/// changed poll interval or a provider being switched off take effect without a
+/// restart. A trait rather than a concrete settings type keeps this module — and
+/// everything below it — unaware that the app has a settings screen at all.
+pub trait RefreshPolicy: Send + Sync + 'static {
+    /// Gap between polls of a healthy provider.
+    fn interval(&self) -> Duration;
+
+    /// Whether this provider should be polled at all.
+    fn is_enabled(&self, provider: ProviderId) -> bool;
+}
 
 /// Tuning for the polling loop.
 #[derive(Debug, Clone)]
@@ -31,6 +46,17 @@ impl Default for RefreshConfig {
         Self {
             interval: DEFAULT_POLL_INTERVAL,
         }
+    }
+}
+
+/// A fixed configuration: one interval, every provider on.
+impl RefreshPolicy for RefreshConfig {
+    fn interval(&self) -> Duration {
+        self.interval
+    }
+
+    fn is_enabled(&self, _provider: ProviderId) -> bool {
+        true
     }
 }
 
@@ -62,7 +88,7 @@ fn bring_forward(states: &mut [ProviderState], now: Instant) {
 /// live data as soon as it starts rather than after one interval of nothing.
 pub async fn run_refresh_loop(
     registry: Arc<ProviderRegistry>,
-    config: RefreshConfig,
+    policy: Arc<dyn RefreshPolicy>,
     sink: mpsc::Sender<Vec<ProviderFetch>>,
     refresh_now: Arc<Notify>,
 ) {
@@ -73,7 +99,7 @@ pub async fn run_refresh_loop(
     let now = Instant::now();
     let mut states: Vec<ProviderState> = (0..registry.len())
         .map(|_| ProviderState {
-            schedule: RefreshSchedule::new(config.interval),
+            schedule: RefreshSchedule::new(policy.interval()),
             due_at: now,
             last_polled: None,
         })
@@ -82,24 +108,55 @@ pub async fn run_refresh_loop(
     loop {
         let now = Instant::now();
 
+        // Re-read the interval every pass. Backoff state is left alone, so a
+        // provider that has been failing keeps its escalation, now measured
+        // against the new interval.
+        let interval = policy.interval();
+        for state in &mut states {
+            state.schedule.set_interval(interval);
+        }
+
+        let enabled = |index: usize| {
+            registry
+                .id_at(index)
+                .map(|provider| policy.is_enabled(provider))
+                .unwrap_or(true)
+        };
+
         let due: Vec<usize> = states
             .iter()
             .enumerate()
-            .filter(|(_, state)| state.due_at <= now)
+            .filter(|(index, state)| enabled(*index) && state.due_at <= now)
             .map(|(index, _)| index)
             .collect();
 
         if due.is_empty() {
-            // Sleep until the earliest deadline rather than waking on a fixed
-            // tick: a loop that wakes every second to discover nothing is due
-            // keeps the process from ever going idle.
-            let Some(next) = states.iter().map(|state| state.due_at).min() else {
-                return;
-            };
+            // Only enabled providers have deadlines worth waiting for. A
+            // disabled one would hand back a deadline already in the past and
+            // the loop would spin on it.
+            let next = states
+                .iter()
+                .enumerate()
+                .filter(|(index, _)| enabled(*index))
+                .map(|(_, state)| state.due_at)
+                .min();
 
-            tokio::select! {
-                _ = tokio::time::sleep_until(next) => {}
-                _ = refresh_now.notified() => bring_forward(&mut states, Instant::now()),
+            match next {
+                // Sleep until the earliest deadline rather than waking on a
+                // fixed tick: a loop that wakes every second to discover
+                // nothing is due keeps the process from ever going idle.
+                Some(next) => {
+                    tokio::select! {
+                        _ = tokio::time::sleep_until(next) => {}
+                        _ = refresh_now.notified() => bring_forward(&mut states, Instant::now()),
+                    }
+                }
+                // Every provider is switched off. There is no deadline left to
+                // wait for, so wait for the configuration to change instead.
+                None => {
+                    refresh_now.notified().await;
+                    bring_forward(&mut states, Instant::now());
+                }
             }
             continue;
         }
@@ -142,11 +199,11 @@ pub async fn run_refresh_loop(
 /// Spawn [`run_refresh_loop`] as a background task.
 pub fn spawn_refresh_loop(
     registry: Arc<ProviderRegistry>,
-    config: RefreshConfig,
+    policy: Arc<dyn RefreshPolicy>,
     sink: mpsc::Sender<Vec<ProviderFetch>>,
     refresh_now: Arc<Notify>,
 ) -> JoinHandle<()> {
-    tokio::spawn(run_refresh_loop(registry, config, sink, refresh_now))
+    tokio::spawn(run_refresh_loop(registry, policy, sink, refresh_now))
 }
 
 #[cfg(test)]
@@ -192,7 +249,7 @@ mod tests {
             stub(ProviderId::Codex, StubOutcome::Succeeds { used_percent: 2.0 }),
         ]));
         let (sender, mut receiver) = mpsc::channel(8);
-        let _task = spawn_refresh_loop(registry, config(), sender, Arc::new(Notify::new()));
+        let _task = spawn_refresh_loop(registry, Arc::new(config()), sender, Arc::new(Notify::new()));
 
         let batch = next_batch(&mut receiver).await;
 
@@ -209,7 +266,7 @@ mod tests {
             StubOutcome::Succeeds { used_percent: 1.0 },
         )]));
         let (sender, mut receiver) = mpsc::channel(8);
-        let _task = spawn_refresh_loop(registry, config(), sender, Arc::new(Notify::new()));
+        let _task = spawn_refresh_loop(registry, Arc::new(config()), sender, Arc::new(Notify::new()));
 
         next_batch(&mut receiver).await;
 
@@ -230,7 +287,7 @@ mod tests {
             stub(ProviderId::Codex, StubOutcome::Succeeds { used_percent: 2.0 }),
         ]));
         let (sender, mut receiver) = mpsc::channel(8);
-        let _task = spawn_refresh_loop(registry, config(), sender, Arc::new(Notify::new()));
+        let _task = spawn_refresh_loop(registry, Arc::new(config()), sender, Arc::new(Notify::new()));
 
         assert_eq!(next_batch(&mut receiver).await.len(), 2);
 
@@ -257,7 +314,7 @@ mod tests {
                 .with_timeout(Duration::from_secs(1)),
         );
         let (sender, mut receiver) = mpsc::channel(8);
-        let _task = spawn_refresh_loop(registry, config(), sender, Arc::new(Notify::new()));
+        let _task = spawn_refresh_loop(registry, Arc::new(config()), sender, Arc::new(Notify::new()));
 
         let batch = next_batch(&mut receiver).await;
         assert!(matches!(batch[0].result, Err(UsageError::Network { .. })));
@@ -281,7 +338,7 @@ mod tests {
             },
         )]));
         let (sender, mut receiver) = mpsc::channel(8);
-        let _task = spawn_refresh_loop(registry, config(), sender, Arc::new(Notify::new()));
+        let _task = spawn_refresh_loop(registry, Arc::new(config()), sender, Arc::new(Notify::new()));
 
         next_batch(&mut receiver).await;
 
@@ -304,7 +361,7 @@ mod tests {
             },
         )]));
         let (sender, mut receiver) = mpsc::channel(8);
-        let _task = spawn_refresh_loop(registry, config(), sender, Arc::new(Notify::new()));
+        let _task = spawn_refresh_loop(registry, Arc::new(config()), sender, Arc::new(Notify::new()));
 
         next_batch(&mut receiver).await;
 
@@ -322,7 +379,7 @@ mod tests {
             StubOutcome::Fails,
         )]));
         let (sender, mut receiver) = mpsc::channel(8);
-        let _task = spawn_refresh_loop(registry, config(), sender, Arc::new(Notify::new()));
+        let _task = spawn_refresh_loop(registry, Arc::new(config()), sender, Arc::new(Notify::new()));
 
         next_batch(&mut receiver).await;
 
@@ -343,7 +400,7 @@ mod tests {
         )]));
         let (sender, mut receiver) = mpsc::channel(8);
         let refresh = Arc::new(Notify::new());
-        let _task = spawn_refresh_loop(registry, config(), sender, Arc::clone(&refresh));
+        let _task = spawn_refresh_loop(registry, Arc::new(config()), sender, Arc::clone(&refresh));
 
         next_batch(&mut receiver).await;
 
@@ -365,7 +422,7 @@ mod tests {
         )]));
         let (sender, mut receiver) = mpsc::channel(8);
         let refresh = Arc::new(Notify::new());
-        let _task = spawn_refresh_loop(registry, config(), sender, Arc::clone(&refresh));
+        let _task = spawn_refresh_loop(registry, Arc::new(config()), sender, Arc::clone(&refresh));
 
         next_batch(&mut receiver).await;
 
@@ -392,7 +449,7 @@ mod tests {
         )]));
         let (sender, mut receiver) = mpsc::channel(8);
         let refresh = Arc::new(Notify::new());
-        let _task = spawn_refresh_loop(registry, config(), sender, Arc::clone(&refresh));
+        let _task = spawn_refresh_loop(registry, Arc::new(config()), sender, Arc::clone(&refresh));
 
         next_batch(&mut receiver).await;
 
@@ -409,7 +466,7 @@ mod tests {
             StubOutcome::Succeeds { used_percent: 1.0 },
         )]));
         let (sender, receiver) = mpsc::channel(8);
-        let task = spawn_refresh_loop(registry, config(), sender, Arc::new(Notify::new()));
+        let task = spawn_refresh_loop(registry, Arc::new(config()), sender, Arc::new(Notify::new()));
 
         drop(receiver);
         tokio::time::advance(INTERVAL * 2).await;
@@ -425,11 +482,145 @@ mod tests {
         let registry = Arc::new(ProviderRegistry::new(vec![]));
         let (sender, _receiver) = mpsc::channel(8);
 
-        let task = spawn_refresh_loop(registry, config(), sender, Arc::new(Notify::new()));
+        let task = spawn_refresh_loop(registry, Arc::new(config()), sender, Arc::new(Notify::new()));
 
         tokio::time::timeout(Duration::from_secs(1), task)
             .await
             .expect("the loop should have exited")
             .expect("the loop should not have panicked");
+    }
+
+    /// A policy that can be changed while the loop is running, standing in for
+    /// the user editing their settings.
+    struct MutablePolicy {
+        interval: std::sync::Mutex<Duration>,
+        disabled: std::sync::Mutex<Vec<ProviderId>>,
+    }
+
+    impl MutablePolicy {
+        fn new() -> Arc<Self> {
+            Arc::new(Self {
+                interval: std::sync::Mutex::new(INTERVAL),
+                disabled: std::sync::Mutex::new(Vec::new()),
+            })
+        }
+
+        fn disable(&self, provider: ProviderId) {
+            self.disabled.lock().unwrap().push(provider);
+        }
+
+        fn enable_everything(&self) {
+            self.disabled.lock().unwrap().clear();
+        }
+
+        fn set_interval(&self, interval: Duration) {
+            *self.interval.lock().unwrap() = interval;
+        }
+    }
+
+    impl RefreshPolicy for MutablePolicy {
+        fn interval(&self) -> Duration {
+            *self.interval.lock().unwrap()
+        }
+
+        fn is_enabled(&self, provider: ProviderId) -> bool {
+            !self.disabled.lock().unwrap().contains(&provider)
+        }
+    }
+
+    fn two_healthy_providers() -> Arc<ProviderRegistry> {
+        Arc::new(ProviderRegistry::new(vec![
+            stub(ProviderId::Claude, StubOutcome::Succeeds { used_percent: 1.0 }),
+            stub(ProviderId::Codex, StubOutcome::Succeeds { used_percent: 2.0 }),
+        ]))
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn a_disabled_provider_is_never_polled() {
+        // Switching a provider off has to stop the requests, not just hide the
+        // badge. Otherwise the app keeps authenticating against a service the
+        // user has said they are not using.
+        let policy = MutablePolicy::new();
+        policy.disable(ProviderId::Codex);
+
+        let (sender, mut receiver) = mpsc::channel(8);
+        let _task = spawn_refresh_loop(
+            two_healthy_providers(),
+            Arc::clone(&policy) as Arc<dyn RefreshPolicy>,
+            sender,
+            Arc::new(Notify::new()),
+        );
+
+        assert_eq!(
+            providers_in(&next_batch(&mut receiver).await),
+            vec![ProviderId::Claude]
+        );
+
+        tokio::time::advance(INTERVAL * 3).await;
+
+        assert_eq!(
+            providers_in(&next_batch(&mut receiver).await),
+            vec![ProviderId::Claude],
+            "a disabled provider was polled anyway"
+        );
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn re_enabling_a_provider_polls_it_without_a_restart() {
+        let policy = MutablePolicy::new();
+        policy.disable(ProviderId::Codex);
+
+        let refresh = Arc::new(Notify::new());
+        let (sender, mut receiver) = mpsc::channel(8);
+        let _task = spawn_refresh_loop(
+            two_healthy_providers(),
+            Arc::clone(&policy) as Arc<dyn RefreshPolicy>,
+            sender,
+            Arc::clone(&refresh),
+        );
+
+        next_batch(&mut receiver).await;
+
+        // Past the floor, so the nudge is allowed to act at once.
+        tokio::time::advance(MIN_POLL_INTERVAL + Duration::from_secs(1)).await;
+        policy.enable_everything();
+        refresh.notify_waiters();
+
+        let batch = next_batch(&mut receiver).await;
+
+        assert!(
+            batch.iter().any(|fetch| fetch.provider == ProviderId::Codex),
+            "a re-enabled provider was not picked up until a restart"
+        );
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn a_shortened_interval_takes_effect_without_a_restart() {
+        // The schedules are built once at startup, so this only passes because
+        // the loop re-reads the interval on every pass.
+        let policy = MutablePolicy::new();
+
+        let (sender, mut receiver) = mpsc::channel(8);
+        let _task = spawn_refresh_loop(
+            Arc::new(ProviderRegistry::new(vec![stub(
+                ProviderId::Claude,
+                StubOutcome::Succeeds { used_percent: 1.0 },
+            )])),
+            Arc::clone(&policy) as Arc<dyn RefreshPolicy>,
+            sender,
+            Arc::new(Notify::new()),
+        );
+
+        next_batch(&mut receiver).await;
+        policy.set_interval(MIN_POLL_INTERVAL);
+
+        // Well inside the original 300s interval, well past the new 60s one.
+        tokio::time::advance(MIN_POLL_INTERVAL + Duration::from_secs(5)).await;
+
+        assert_eq!(
+            providers_in(&next_batch(&mut receiver).await),
+            vec![ProviderId::Claude],
+            "the loop was still using the interval it started with"
+        );
     }
 }

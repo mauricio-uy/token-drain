@@ -2,12 +2,15 @@
 
 pub mod interaction;
 pub mod placement;
+pub mod settings_window;
 
+use std::sync::Arc;
 use std::time::Duration;
 
 use tauri::{Monitor, PhysicalPosition, WebviewWindow};
 
-use placement::{dock_position, to_physical, Rect, RailSide, MIN_TOP_MARGIN_LOGICAL};
+use crate::settings::{Settings, SettingsStore};
+use placement::{dock_position, to_physical, RailPlacement, Rect, MIN_TOP_MARGIN_LOGICAL};
 
 /// How often the window's position is re-checked.
 ///
@@ -31,7 +34,11 @@ fn target_monitor(window: &WebviewWindow) -> Option<Monitor> {
 }
 
 /// Work out where the window should sit right now, in physical pixels.
-pub fn desired_position(window: &WebviewWindow, side: RailSide) -> Option<(i32, i32)> {
+///
+/// Both measurements the user can influence are stored in logical pixels and
+/// converted here, so the same settings file puts the rail in the same place on
+/// a 100% and a 150% display.
+pub fn desired_position(window: &WebviewWindow, settings: &Settings) -> Option<(i32, i32)> {
     let monitor = target_monitor(window)?;
     let size = window.outer_size().ok()?;
 
@@ -43,15 +50,14 @@ pub fn desired_position(window: &WebviewWindow, side: RailSide) -> Option<(i32, 
         area.size.height,
     );
 
-    let min_top_margin = to_physical(MIN_TOP_MARGIN_LOGICAL, monitor.scale_factor());
+    let scale = monitor.scale_factor();
+    let placement = RailPlacement::new(
+        settings.rail_side,
+        to_physical(MIN_TOP_MARGIN_LOGICAL, scale),
+    )
+    .with_vertical_offset(to_physical(settings.vertical_offset as f64, scale));
 
-    Some(dock_position(
-        work_area,
-        size.width,
-        size.height,
-        side,
-        min_top_margin,
-    ))
+    Some(dock_position(work_area, size.width, size.height, placement))
 }
 
 /// Move the window to its docked position, if it is not already there.
@@ -59,8 +65,8 @@ pub fn desired_position(window: &WebviewWindow, side: RailSide) -> Option<(i32, 
 /// Returns whether a move was performed. Skipping a no-op move matters: setting
 /// the position unconditionally on a timer makes the window flicker on some
 /// compositors and shows up as constant work in a profiler.
-pub fn dock(window: &WebviewWindow, side: RailSide) -> bool {
-    let Some((x, y)) = desired_position(window, side) else {
+pub fn dock(window: &WebviewWindow, settings: &Settings) -> bool {
+    let Some((x, y)) = desired_position(window, settings) else {
         return false;
     };
 
@@ -74,7 +80,11 @@ pub fn dock(window: &WebviewWindow, side: RailSide) -> bool {
 }
 
 /// Keep the window docked for the lifetime of the app.
-pub fn spawn_dock_watcher(window: WebviewWindow, side: RailSide) {
+///
+/// The settings are read on every tick rather than captured once, so changing
+/// the side or the offset takes effect without a restart even for the paths
+/// that do not re-dock explicitly.
+pub fn spawn_dock_watcher(window: WebviewWindow, settings: Arc<SettingsStore>) {
     tauri::async_runtime::spawn(async move {
         let mut ticker = tokio::time::interval(REPOSITION_INTERVAL);
 
@@ -87,7 +97,7 @@ pub fn spawn_dock_watcher(window: WebviewWindow, side: RailSide) {
                 return;
             }
 
-            dock(&window, side);
+            dock(&window, &settings.get());
         }
     });
 }

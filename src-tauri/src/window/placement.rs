@@ -63,6 +63,36 @@ pub enum RailSide {
     Left,
 }
 
+/// Where the rail should sit, independent of any particular screen.
+///
+/// A struct rather than loose arguments because the two measurements are both
+/// `i32` and adjacent: passed positionally, a transposition would compile
+/// cleanly and place the window somewhere subtly wrong.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RailPlacement {
+    pub side: RailSide,
+    /// Distance to keep clear of the top of the work area.
+    pub min_top_margin: i32,
+    /// Nudge from vertical centre. Positive moves the rail down.
+    pub vertical_offset: i32,
+}
+
+impl RailPlacement {
+    /// Centred, with the standard top margin.
+    pub fn new(side: RailSide, min_top_margin: i32) -> Self {
+        Self {
+            side,
+            min_top_margin,
+            vertical_offset: 0,
+        }
+    }
+
+    pub fn with_vertical_offset(mut self, offset: i32) -> Self {
+        self.vertical_offset = offset;
+        self
+    }
+}
+
 /// Compute the window's top-left corner.
 ///
 /// `work_area` is the monitor area excluding the taskbar, so a taskbar on any
@@ -71,20 +101,19 @@ pub fn dock_position(
     work_area: Rect,
     window_width: u32,
     window_height: u32,
-    side: RailSide,
-    min_top_margin: i32,
+    placement: RailPlacement,
 ) -> (i32, i32) {
-    let x = match side {
+    let x = match placement.side {
         RailSide::Right => work_area.right().saturating_sub(window_width as i32),
         RailSide::Left => work_area.x,
     };
 
-    let y = vertical_position(work_area, window_height, min_top_margin);
+    let y = vertical_position(work_area, window_height, placement);
 
     (x, y)
 }
 
-fn vertical_position(work_area: Rect, window_height: u32, min_top_margin: i32) -> i32 {
+fn vertical_position(work_area: Rect, window_height: u32, placement: RailPlacement) -> i32 {
     let window_height = window_height as i32;
 
     // A window taller than the space available cannot satisfy any constraint;
@@ -95,13 +124,19 @@ fn vertical_position(work_area: Rect, window_height: u32, min_top_margin: i32) -
 
     let centred = work_area.y + (work_area.height as i32 - window_height) / 2;
 
-    let highest = work_area.y.saturating_add(min_top_margin);
+    // The user's nudge is applied before the clamps, not after, so it can move
+    // the rail anywhere that is legal and nowhere that is not. An offset large
+    // enough to push the window off screen is absorbed by the clamp rather than
+    // honoured.
+    let wanted = centred.saturating_add(placement.vertical_offset);
+
+    let highest = work_area.y.saturating_add(placement.min_top_margin);
     let lowest = work_area.bottom().saturating_sub(window_height);
 
     // Order matters: push down away from the close button first, then pull back
     // up if that would run off the bottom. On a screen too short to honour both,
     // staying on screen wins.
-    centred.max(highest).min(lowest).max(work_area.y)
+    wanted.max(highest).min(lowest).max(work_area.y)
 }
 
 /// Convert a logical measurement to physical pixels for a given scale factor.
@@ -121,24 +156,27 @@ mod tests {
     const WIDTH: u32 = 460;
     const HEIGHT: u32 = 520;
     const MARGIN: i32 = 120;
+    /// Mirrors `settings::MAX_VERTICAL_OFFSET`, kept local so the geometry
+    /// tests do not depend on the settings module.
+    const MAX_VERTICAL_OFFSET: i32 = 400;
 
     #[test]
     fn docks_flush_to_the_right_edge_of_the_work_area() {
-        let (x, _) = dock_position(standard_work_area(), WIDTH, HEIGHT, RailSide::Right, MARGIN);
+        let (x, _) = dock_position(standard_work_area(), WIDTH, HEIGHT, RailPlacement::new(RailSide::Right, MARGIN));
 
         assert_eq!(x, 1920 - 460);
     }
 
     #[test]
     fn docks_flush_to_the_left_edge_of_the_work_area() {
-        let (x, _) = dock_position(standard_work_area(), WIDTH, HEIGHT, RailSide::Left, MARGIN);
+        let (x, _) = dock_position(standard_work_area(), WIDTH, HEIGHT, RailPlacement::new(RailSide::Left, MARGIN));
 
         assert_eq!(x, 0);
     }
 
     #[test]
     fn centres_vertically_within_the_work_area() {
-        let (_, y) = dock_position(standard_work_area(), WIDTH, HEIGHT, RailSide::Right, MARGIN);
+        let (_, y) = dock_position(standard_work_area(), WIDTH, HEIGHT, RailPlacement::new(RailSide::Right, MARGIN));
 
         assert_eq!(y, (1040 - 520) / 2);
     }
@@ -149,7 +187,7 @@ mod tests {
         // screen edge, and the rail must stop with it.
         let work_area = Rect::new(0, 0, 1920 - 48, 1080);
 
-        let (x, _) = dock_position(work_area, WIDTH, HEIGHT, RailSide::Right, MARGIN);
+        let (x, _) = dock_position(work_area, WIDTH, HEIGHT, RailPlacement::new(RailSide::Right, MARGIN));
 
         assert_eq!(x, 1920 - 48 - 460);
     }
@@ -158,7 +196,7 @@ mod tests {
     fn a_top_taskbar_shifts_the_work_area_origin() {
         let work_area = Rect::new(0, 40, 1920, 1040);
 
-        let (_, y) = dock_position(work_area, WIDTH, HEIGHT, RailSide::Right, MARGIN);
+        let (_, y) = dock_position(work_area, WIDTH, HEIGHT, RailPlacement::new(RailSide::Right, MARGIN));
 
         assert_eq!(y, 40 + (1040 - 520) / 2);
         assert!(y >= 40, "the window started above the work area");
@@ -170,7 +208,7 @@ mod tests {
         // monitor placed to the left sits at negative virtual coordinates.
         let work_area = Rect::new(-1920, 0, 1920, 1040);
 
-        let (x, y) = dock_position(work_area, WIDTH, HEIGHT, RailSide::Right, MARGIN);
+        let (x, y) = dock_position(work_area, WIDTH, HEIGHT, RailPlacement::new(RailSide::Right, MARGIN));
 
         assert_eq!(x, -1920 + 1920 - 460);
         assert_eq!(y, (1040 - 520) / 2);
@@ -180,7 +218,7 @@ mod tests {
     fn a_monitor_above_the_primary_has_a_negative_vertical_origin() {
         let work_area = Rect::new(0, -1080, 1920, 1040);
 
-        let (_, y) = dock_position(work_area, WIDTH, HEIGHT, RailSide::Right, MARGIN);
+        let (_, y) = dock_position(work_area, WIDTH, HEIGHT, RailPlacement::new(RailSide::Right, MARGIN));
 
         assert_eq!(y, -1080 + (1040 - 520) / 2);
     }
@@ -191,7 +229,7 @@ mod tests {
         // the strip where a maximized window's close button lives.
         let work_area = Rect::new(0, 0, 1280, 720);
 
-        let (_, y) = dock_position(work_area, WIDTH, HEIGHT, RailSide::Right, MARGIN);
+        let (_, y) = dock_position(work_area, WIDTH, HEIGHT, RailPlacement::new(RailSide::Right, MARGIN));
 
         assert_eq!(y, MARGIN);
         assert!(y + HEIGHT as i32 <= 720, "the window ran off the bottom");
@@ -203,7 +241,7 @@ mod tests {
         // letting the window hang off the bottom edge.
         let work_area = Rect::new(0, 0, 1280, 600);
 
-        let (_, y) = dock_position(work_area, WIDTH, HEIGHT, RailSide::Right, MARGIN);
+        let (_, y) = dock_position(work_area, WIDTH, HEIGHT, RailPlacement::new(RailSide::Right, MARGIN));
 
         assert_eq!(y, 600 - 520);
         assert!(y >= 0);
@@ -213,9 +251,54 @@ mod tests {
     fn a_window_taller_than_the_work_area_is_pinned_to_the_top() {
         let work_area = Rect::new(0, 0, 1280, 400);
 
-        let (_, y) = dock_position(work_area, WIDTH, HEIGHT, RailSide::Right, MARGIN);
+        let (_, y) = dock_position(work_area, WIDTH, HEIGHT, RailPlacement::new(RailSide::Right, MARGIN));
 
         assert_eq!(y, 0);
+    }
+
+    #[test]
+    fn a_vertical_offset_moves_the_rail_by_exactly_that_much() {
+        let centred = dock_position(
+            standard_work_area(),
+            WIDTH,
+            HEIGHT,
+            RailPlacement::new(RailSide::Right, MARGIN),
+        );
+        let nudged = dock_position(
+            standard_work_area(),
+            WIDTH,
+            HEIGHT,
+            RailPlacement::new(RailSide::Right, MARGIN).with_vertical_offset(80),
+        );
+
+        assert_eq!(nudged.1 - centred.1, 80);
+        assert_eq!(nudged.0, centred.0, "a vertical nudge moved the rail sideways");
+    }
+
+    #[test]
+    fn an_offset_cannot_push_the_rail_off_the_bottom() {
+        let (_, y) = dock_position(
+            standard_work_area(),
+            WIDTH,
+            HEIGHT,
+            RailPlacement::new(RailSide::Right, MARGIN).with_vertical_offset(100_000),
+        );
+
+        assert_eq!(y, 1040 - 520, "the offset escaped the bottom clamp");
+    }
+
+    #[test]
+    fn an_offset_cannot_push_the_rail_up_into_the_close_button() {
+        // The top margin exists so the rail never sits under the window
+        // controls of whatever is behind it. A preference must not defeat it.
+        let (_, y) = dock_position(
+            standard_work_area(),
+            WIDTH,
+            HEIGHT,
+            RailPlacement::new(RailSide::Right, MARGIN).with_vertical_offset(-100_000),
+        );
+
+        assert_eq!(y, MARGIN);
     }
 
     #[test]
@@ -240,18 +323,26 @@ mod tests {
             Rect::new(0, 0, 1024, 600),
         ];
 
+        // The offset is swept alongside the arrangements: a preference that is
+        // safe on one screen and pushes the window off another is still a bug.
+        let offsets = [-MAX_VERTICAL_OFFSET, -40, 0, 40, MAX_VERTICAL_OFFSET];
+
         for work_area in arrangements {
             for side in [RailSide::Right, RailSide::Left] {
-                let (x, y) = dock_position(work_area, WIDTH, HEIGHT, side, MARGIN);
+                for offset in offsets {
+                    let placement =
+                        RailPlacement::new(side, MARGIN).with_vertical_offset(offset);
+                    let (x, y) = dock_position(work_area, WIDTH, HEIGHT, placement);
 
-                assert!(
-                    x >= work_area.x && x + WIDTH as i32 <= work_area.right(),
-                    "{side:?} on {work_area:?} placed x={x} outside the work area"
-                );
-                assert!(
-                    y >= work_area.y,
-                    "{side:?} on {work_area:?} placed y={y} above the work area"
-                );
+                    assert!(
+                        x >= work_area.x && x + WIDTH as i32 <= work_area.right(),
+                        "{side:?} on {work_area:?} placed x={x} outside the work area"
+                    );
+                    assert!(
+                        y >= work_area.y,
+                        "{side:?}/{offset} on {work_area:?} placed y={y} above the work area"
+                    );
+                }
             }
         }
     }

@@ -1,10 +1,12 @@
 /*
- * Base layout for a chromeless desktop widget.
+ * Base layout.
  *
- * The window is a fixed-size overlay with no OS decorations, so the page must
- * never scroll and must never introduce margins of its own: any gap here shows
- * up as a transparent seam around the widget, and any scrollbar is a visible
- * artifact on top of the user's desktop.
+ * Two windows load this bundle. The rail is a chromeless overlay: it must never
+ * scroll and never introduce margins of its own, since any gap shows up as a
+ * transparent seam around the widget and any scrollbar is a visible artifact on
+ * top of the user's desktop. The settings window is an ordinary window and none
+ * of that applies to it, so those rules are scoped by surface rather than set
+ * on every document.
  */
 
 *,
@@ -22,16 +24,17 @@ body,
   padding: 0;
 }
 
-body {
+[data-surface="rail"] body {
   overflow: hidden;
   overscroll-behavior: none;
 }
 
 /*
  * A widget is not a document: text selection and image dragging are accidental
- * interactions here, not features.
+ * interactions there, not features. The settings window is a document and keeps
+ * both.
  */
-body {
+[data-surface="rail"] body {
   user-select: none;
   -webkit-user-select: none;
 }

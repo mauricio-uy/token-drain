@@ -1,0 +1,124 @@
+/*
+ * The settings window.
+ *
+ * An ordinary window, unlike the rail: it has OS chrome, it can be focused, and
+ * it is allowed to scroll. It reuses the widget's tokens so the two read as one
+ * app, but none of the chromeless-overlay rules apply here.
+ */
+
+.settings {
+  min-height: 100%;
+  padding: 20px 22px 26px;
+  background: var(--surface-raised);
+  color: var(--text);
+  font: 400 13px/1.45 system-ui, sans-serif;
+}
+
+.settings--loading {
+  display: grid;
+  place-items: center;
+  color: var(--text-muted);
+}
+
+.settings-section + .settings-section {
+  margin-top: 22px;
+  padding-top: 20px;
+  border-top: 1px solid var(--surface-line);
+}
+
+.settings-title {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.settings-hint {
+  margin: 0 0 10px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.settings-warning {
+  margin: 10px 0 0;
+  color: var(--level-warn);
+  font-size: 12px;
+}
+
+.settings-error {
+  margin: 0 0 16px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--level-high) 18%, transparent);
+  color: var(--level-high);
+  font-size: 12px;
+}
+
+.settings-providers {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.settings-providers li + li {
+  margin-top: 8px;
+}
+
+.settings-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-provider-mark {
+  display: grid;
+  place-items: center;
+  color: var(--text);
+}
+
+.settings-choices {
+  display: flex;
+  gap: 20px;
+}
+
+.settings-select {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--surface-line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+.settings-slider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.settings-slider input[type="range"] {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-reset {
+  padding: 4px 10px;
+  border: 1px solid var(--surface-line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.settings-reset:disabled {
+  color: var(--text-muted);
+  cursor: default;
+}
+
+/* The rail's accent, so the two windows read as the same app. */
+.settings input[type="checkbox"],
+.settings input[type="radio"],
+.settings input[type="range"] {
+  accent-color: var(--level-ok);
+}

@@ -48,6 +48,15 @@ impl RefreshSchedule {
         self.interval
     }
 
+    /// Adopt a new interval, clamped the same way as at construction.
+    ///
+    /// Backoff state deliberately survives: a provider has not stopped failing
+    /// because the user moved a slider, and resetting the escalation would turn
+    /// a settings change into a way to retry a dead endpoint at full speed.
+    pub fn set_interval(&mut self, interval: Duration) {
+        self.interval = interval.max(MIN_POLL_INTERVAL);
+    }
+
     pub fn consecutive_failures(&self) -> u32 {
         self.consecutive_failures
     }

@@ -20,13 +20,31 @@ use crate::providers::claude::ClaudeProvider;
 use crate::providers::codex::CodexProvider;
 use crate::providers::error::UsageError;
 use crate::providers::http::build_client;
-use crate::providers::refresh::{run_refresh_loop, RefreshConfig};
+use crate::providers::refresh::{run_refresh_loop, RefreshPolicy};
 use crate::providers::registry::{AnyProvider, ProviderFetch, ProviderRegistry};
 use crate::providers::usage::{ProviderId, ProviderUsage};
+use crate::settings::{Settings, SettingsStore};
 use crate::view::{build_view, ProviderView};
 
 /// The event emitted whenever a poll produces new results.
 pub const USAGE_UPDATED_EVENT: &str = "usage-updated";
+
+/// The settings, seen as the polling loop needs to see them.
+///
+/// The adapter lives here rather than in the settings module so that neither
+/// side has to know about the other: the provider layer sees a policy, the
+/// settings module sees a plain preferences file.
+struct SettingsPolicy(Arc<SettingsStore>);
+
+impl RefreshPolicy for SettingsPolicy {
+    fn interval(&self) -> std::time::Duration {
+        self.0.get().poll_interval()
+    }
+
+    fn is_enabled(&self, provider: ProviderId) -> bool {
+        self.0.get().is_enabled(provider)
+    }
+}
 
 /// Everything the commands need.
 pub struct UsageState {
@@ -35,26 +53,39 @@ pub struct UsageState {
     /// The most recent outcome per provider, live results only.
     latest: Mutex<BTreeMap<ProviderId, Result<ProviderUsage, UsageError>>>,
     cache: Mutex<UsageCache>,
+    settings: Arc<SettingsStore>,
     refresh_now: Arc<Notify>,
 }
 
 impl UsageState {
-    pub fn new(order: Vec<ProviderId>, cache: UsageCache, refresh_now: Arc<Notify>) -> Self {
+    pub fn new(
+        order: Vec<ProviderId>,
+        cache: UsageCache,
+        settings: Arc<SettingsStore>,
+        refresh_now: Arc<Notify>,
+    ) -> Self {
         Self {
             order,
             latest: Mutex::new(BTreeMap::new()),
             cache: Mutex::new(cache),
+            settings,
             refresh_now,
         }
     }
 
-    /// The current view for every provider, in display order.
+    /// The current view for every enabled provider, in display order.
+    ///
+    /// A disabled provider is omitted rather than shown in some muted state: it
+    /// is not being polled, so any badge for it would be reporting on data the
+    /// app has deliberately stopped collecting.
     pub fn views(&self) -> Vec<ProviderView> {
         let latest = self.latest.lock().ok();
         let cache = self.cache.lock().ok();
+        let settings = self.settings.get();
 
         self.order
             .iter()
+            .filter(|provider| settings.is_enabled(**provider))
             .map(|provider| {
                 let result = latest.as_ref().and_then(|map| map.get(provider));
                 let cached = cache.as_ref().and_then(|cache| cache.get(*provider));
@@ -110,7 +141,11 @@ pub fn provider_order() -> Vec<ProviderId> {
 /// `on_update` is called with the fresh views after every poll. Passing it in
 /// rather than emitting directly keeps this function free of Tauri types and
 /// testable.
-pub fn start<F>(cache_directory: &Path, on_update: F) -> Result<Arc<UsageState>, UsageError>
+pub fn start<F>(
+    cache_directory: &Path,
+    settings: Arc<SettingsStore>,
+    on_update: F,
+) -> Result<Arc<UsageState>, UsageError>
 where
     F: Fn(Vec<ProviderView>) + Send + 'static,
 {
@@ -121,6 +156,7 @@ where
     let state = Arc::new(UsageState::new(
         provider_order(),
         cache,
+        Arc::clone(&settings),
         Arc::clone(&refresh_now),
     ));
 
@@ -133,7 +169,7 @@ where
     // Tauri types.
     tauri::async_runtime::spawn(run_refresh_loop(
         registry,
-        RefreshConfig::default(),
+        Arc::new(SettingsPolicy(settings)),
         sender,
         refresh_now,
     ));
@@ -159,6 +195,57 @@ pub fn get_usage_snapshot(state: tauri::State<'_, Arc<UsageState>>) -> Vec<Provi
 #[tauri::command]
 pub fn refresh_now(state: tauri::State<'_, Arc<UsageState>>) {
     state.request_refresh();
+}
+
+/// The settings as they stand.
+#[tauri::command]
+pub fn get_settings(settings: tauri::State<'_, Arc<SettingsStore>>) -> Settings {
+    settings.get()
+}
+
+/// Every provider the app knows about, enabled or not.
+///
+/// The settings screen cannot build its list from the usage snapshot, because
+/// that deliberately omits disabled providers — a provider switched off would
+/// vanish from the only screen that could switch it back on.
+#[tauri::command]
+pub fn list_providers() -> Vec<ProviderId> {
+    provider_order()
+}
+
+/// Store new settings and apply them.
+///
+/// Returns what was actually stored, which may have been clamped. The caller is
+/// expected to render the return value rather than what it sent, so the screen
+/// always shows the configuration really in force.
+///
+/// Applying happens here rather than being left to the watchers: the rail
+/// re-docks immediately so moving it is direct manipulation rather than a change
+/// that shows up a few seconds later, and the poll loop is nudged so a provider
+/// switched back on is fetched now instead of at the next deadline.
+///
+/// The views are re-emitted directly as well. Waiting for the nudged poll to
+/// publish them would not do: a manual refresh still obeys the minimum poll
+/// interval, so switching a provider off could leave its badge on screen for the
+/// best part of a minute. Which providers to *show* is already known here — it
+/// needs no network — so it is answered here.
+#[tauri::command]
+pub fn set_settings(
+    app: tauri::AppHandle,
+    settings: tauri::State<'_, Arc<SettingsStore>>,
+    state: tauri::State<'_, Arc<UsageState>>,
+    value: Settings,
+) -> Result<Settings, String> {
+    let stored = settings.set(value).map_err(|error| error.to_string())?;
+
+    if let Some(rail) = tauri::Manager::get_webview_window(&app, crate::RAIL_WINDOW_LABEL) {
+        crate::window::dock(&rail, &stored);
+    }
+
+    let _ = tauri::Emitter::emit(&app, USAGE_UPDATED_EVENT, state.views());
+    state.request_refresh();
+
+    Ok(stored)
 }
 
 #[cfg(test)]
@@ -195,9 +282,17 @@ mod tests {
     }
 
     fn state_in(dir: &TempDir) -> UsageState {
+        state_with(dir, Settings::default())
+    }
+
+    fn state_with(dir: &TempDir, settings: Settings) -> UsageState {
+        let store = Arc::new(SettingsStore::open(&dir.0));
+        store.set(settings).expect("should persist");
+
         UsageState::new(
             provider_order(),
             UsageCache::open(&dir.0),
+            store,
             Arc::new(Notify::new()),
         )
     }
@@ -297,6 +392,51 @@ mod tests {
             views[0].last_known.as_ref().unwrap().session.as_ref().unwrap().used_percent,
             55.0
         );
+    }
+
+    #[test]
+    fn a_disabled_provider_is_left_out_of_the_views() {
+        // Not shown greyed out: it is not being polled, so a badge for it would
+        // be reporting on data the app has deliberately stopped collecting.
+        let dir = TempDir::new("disabled");
+        let state = state_with(
+            &dir,
+            Settings {
+                disabled_providers: std::collections::BTreeSet::from([ProviderId::Codex]),
+                ..Settings::default()
+            },
+        );
+
+        let providers: Vec<_> = state.views().iter().map(|view| view.provider).collect();
+
+        assert_eq!(providers, vec![ProviderId::Claude]);
+    }
+
+    #[test]
+    fn a_disabled_provider_reappears_when_it_is_switched_back_on() {
+        // The views are built from the settings on every call rather than at
+        // construction, which is what lets the rail update without a restart.
+        let dir = TempDir::new("re-enabled");
+        let store = Arc::new(SettingsStore::open(&dir.0));
+        store
+            .set(Settings {
+                disabled_providers: std::collections::BTreeSet::from([ProviderId::Codex]),
+                ..Settings::default()
+            })
+            .expect("should persist");
+
+        let state = UsageState::new(
+            provider_order(),
+            UsageCache::open(&dir.0),
+            Arc::clone(&store),
+            Arc::new(Notify::new()),
+        );
+
+        assert_eq!(state.views().len(), 1);
+
+        store.set(Settings::default()).expect("should persist");
+
+        assert_eq!(state.views().len(), 2);
     }
 
     #[test]

@@ -1,8 +1,11 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Capability for the rail window",
-  "windows": ["rail"],
+  "description": "Capability for the rail and settings windows",
+  "windows": [
+    "rail",
+    "settings"
+  ],
   "permissions": [
     "core:default",
     "opener:default"
