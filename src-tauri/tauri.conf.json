@@ -12,9 +12,19 @@
   "app": {
     "windows": [
       {
+        "label": "rail",
         "title": "tok-ching",
-        "width": 800,
-        "height": 600
+        "width": 460,
+        "height": 520,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "focus": false,
+        "visible": true,
+        "center": false
       }
     ],
     "security": {
