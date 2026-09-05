@@ -1,5 +1,6 @@
 import "./BadgeGallery.css";
 import { ProviderBadge } from "./ProviderBadge";
+import { UsageCard } from "./UsageCard";
 import type { BadgeState, ProviderView } from "../lib/usage";
 
 /**
@@ -63,7 +64,39 @@ const ROWS: { title: string; views: ProviderView[] }[] = [
   },
 ];
 
+const MINUTE = 60_000;
+const HOUR = 60 * MINUTE;
+
+/**
+ * A card for each reset format.
+ *
+ * Both branches of `formatReset` are exercised here, because the boundary
+ * between them is a design decision rather than an implementation detail: under
+ * an hour a countdown is the useful fact, beyond it a wall-clock time is.
+ */
+function cardSamples(now: number) {
+  const soon = sample("claude", "ok", 73);
+  if (soon.usage) {
+    soon.usage.session = { usedPercent: 73, windowMinutes: 300, resetsAt: now + 51 * MINUTE };
+    soon.usage.weekly = { usedPercent: 7, windowMinutes: 10080, resetsAt: now + 50 * HOUR };
+  }
+
+  const failing = sample("codex", "reauth", null, "Not signed in to Codex.");
+  failing.lastKnown = {
+    provider: "codex",
+    session: { usedPercent: 48, windowMinutes: 300, resetsAt: now + 3 * HOUR },
+    weekly: { usedPercent: 90, windowMinutes: 10080, resetsAt: now + 70 * HOUR },
+    plan: "sample",
+    fetchedAt: now - 2 * HOUR,
+  };
+  failing.remediation = { message: "Not signed in to Codex.", command: "codex", resolvesItself: false };
+
+  return [soon, failing];
+}
+
 export function BadgeGallery() {
+  const now = Date.now();
+
   return (
     <div className="gallery">
       {ROWS.map((row) => (
@@ -81,6 +114,15 @@ export function BadgeGallery() {
           </div>
         </section>
       ))}
+
+      <section className="gallery-row">
+        <h2 className="gallery-title">cards</h2>
+        <div className="gallery-cards">
+          {cardSamples(now).map((view, index) => (
+            <UsageCard key={index} view={view} now={now} tailOffset={40} />
+          ))}
+        </div>
+      </section>
     </div>
   );
 }

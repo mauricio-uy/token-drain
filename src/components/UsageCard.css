@@ -1,0 +1,125 @@
+.card {
+  position: relative;
+  width: 262px;
+  padding: 14px 16px 16px;
+  background: var(--surface-raised);
+  border-radius: 18px;
+  color: var(--text);
+  font: 400 12px/1.35 system-ui, sans-serif;
+
+  /* The card floats clear of the rail, so unlike the rail it does cast a
+     shadow — that is what separates it from whatever is behind the window. */
+  box-shadow: 0 12px 32px rgb(0 0 0 / 45%), 0 2px 6px rgb(0 0 0 / 35%);
+}
+
+/*
+ * The tail, pointing right at the badge that opened the card.
+ *
+ * Its vertical position is driven by a custom property rather than a class, so
+ * it can be animated continuously as the pointer moves between badges instead
+ * of snapping between fixed positions.
+ */
+.card-tail {
+  position: absolute;
+  right: -9px;
+  top: calc(var(--tail-offset, 50%) - 10px);
+  width: 0;
+  height: 0;
+  border-top: 10px solid transparent;
+  border-bottom: 10px solid transparent;
+  border-left: 10px solid var(--surface-raised);
+}
+
+.card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.card-head-mark {
+  display: grid;
+  place-items: center;
+  color: var(--text);
+}
+
+.card-head-title {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.card-row + .card-row {
+  margin-top: 14px;
+}
+
+.card-row-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.card-row-label {
+  color: var(--text);
+}
+
+.card-row-reset {
+  color: var(--text-muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.card-bar {
+  height: 5px;
+  border-radius: 999px;
+  background: var(--level-track);
+  overflow: hidden;
+}
+
+.card-bar-fill {
+  height: 100%;
+  border-radius: inherit;
+  transition: width 600ms cubic-bezier(0.22, 1, 0.36, 1), background-color 300ms linear;
+}
+
+.card-bar-fill--ok {
+  background: var(--level-ok);
+}
+
+.card-bar-fill--warn {
+  background: var(--level-warn);
+}
+
+.card-bar-fill--high {
+  background: var(--level-high);
+}
+
+.card-row-value {
+  margin-top: 6px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.card-note {
+  margin: 0 0 12px;
+  color: var(--text);
+}
+
+.card-command {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--surface-line);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+}
+
+.card-stale {
+  margin: 0 0 10px;
+  color: var(--text-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}

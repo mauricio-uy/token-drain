@@ -66,3 +66,11 @@
   );
 }
 
+
+/*
+ * The open card. Positioned from the root rather than the rail so its vertical
+ * placement is independent of how the badges happen to be stacked.
+ */
+.rail-card {
+  position: absolute;
+}
