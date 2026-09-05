@@ -23,6 +23,15 @@ const INTERVALS: { seconds: number; label: string }[] = [
 /** Mirrors `MAX_VERTICAL_OFFSET` in `src-tauri/src/settings.rs`. */
 const MAX_VERTICAL_OFFSET = 400;
 
+/**
+ * Marks offered as chips.
+ *
+ * Any percentage is storable, but a free numeric editor for a set of integers is
+ * a lot of interface for a decision with three sensible answers. The backend
+ * accepts whatever a hand-edited file contains; this offers the useful ones.
+ */
+const OFFERED_THRESHOLDS = [50, 80, 90, 95];
+
 const PROVIDER_NAMES: Record<string, string> = {
   claude: "Claude",
   codex: "Codex",
@@ -163,6 +172,44 @@ export function SettingsPanel() {
           </button>
         </div>
         <p className="settings-hint">{describeOffset(settings.verticalOffset)}</p>
+      </Section>
+
+      <Section
+        title="Notifications"
+        hint="A toast the first time a window passes each mark, once per quota period."
+      >
+        <label className="settings-check">
+          <input
+            type="checkbox"
+            checked={settings.notificationsEnabled}
+            onChange={(event) => update({ notificationsEnabled: event.target.checked })}
+          />
+          Notify me
+        </label>
+
+        <div className="settings-chips" aria-label="Alert thresholds">
+          {OFFERED_THRESHOLDS.map((threshold) => {
+            const on = settings.notificationThresholds.includes(threshold);
+            return (
+              <button
+                key={threshold}
+                type="button"
+                className={`settings-chip ${on ? "is-on" : ""}`}
+                aria-pressed={on}
+                disabled={!settings.notificationsEnabled}
+                onClick={() =>
+                  update({
+                    notificationThresholds: on
+                      ? settings.notificationThresholds.filter((value) => value !== threshold)
+                      : [...settings.notificationThresholds, threshold],
+                  })
+                }
+              >
+                {threshold}%
+              </button>
+            );
+          })}
+        </div>
       </Section>
 
       <Section title="Startup">

@@ -1,5 +1,6 @@
 pub mod autostart;
 pub mod cache;
+pub mod notify;
 pub mod providers;
 pub mod runtime;
 pub mod settings;
@@ -48,6 +49,7 @@ pub fn run() {
             MacosLauncher::LaunchAgent,
             None,
         ))
+        .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
         .manage(InteractiveRegions::default())
         .invoke_handler(tauri::generate_handler![
@@ -78,11 +80,25 @@ pub fn run() {
             }
 
             let emitter = app.handle().clone();
+            let notifier = app.handle().clone();
 
-            let state: Arc<UsageState> =
-                runtime::start(&data_directory, Arc::clone(&settings), move |views| {
+            let state: Arc<UsageState> = runtime::start(
+                &data_directory,
+                Arc::clone(&settings),
+                move |views| {
                     let _ = emitter.emit(USAGE_UPDATED_EVENT, views);
-                })?;
+                },
+                move |alert| {
+                    // A toast that fails to send is not worth taking the app
+                    // down for, and there is nowhere useful to report it: the
+                    // user is by definition not looking at the app.
+                    let _ = tauri_plugin_notification::NotificationExt::notification(&notifier)
+                        .builder()
+                        .title(alert.title())
+                        .body(alert.body())
+                        .show();
+                },
+            )?;
 
             app.manage(state);
 

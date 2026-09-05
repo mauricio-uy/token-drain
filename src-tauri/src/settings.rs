@@ -45,14 +45,29 @@ pub const MAX_VERTICAL_OFFSET: i32 = 400;
 /// a provider added in a later version arrives switched on. Storing the enabled
 /// set would silently hide every new provider from anyone who already has a
 /// settings file.
+///
+/// `#[serde(default)]` is load-bearing: without it, adding a field here would
+/// make every existing settings file fail to parse, and the fallback would
+/// silently reset the user's whole configuration on upgrade. With it, a missing
+/// field takes its default and everything else survives. The format version is
+/// for changes that genuinely cannot be read, not for additions.
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", default)]
 pub struct Settings {
     pub poll_interval_seconds: u64,
     pub disabled_providers: BTreeSet<ProviderId>,
     pub rail_side: RailSide,
     pub vertical_offset: i32,
+    pub notifications_enabled: bool,
+    /// Percentages worth interrupting the user at. A set, so it is inherently
+    /// sorted and free of duplicates.
+    pub notification_thresholds: BTreeSet<u8>,
 }
+
+/// Where the defaults come from: 80% is the point at which a long task is worth
+/// thinking twice about, and 95% is the point at which one is worth not
+/// starting.
+pub const DEFAULT_THRESHOLDS: [u8; 2] = [80, 95];
 
 impl Default for Settings {
     fn default() -> Self {
@@ -61,6 +76,8 @@ impl Default for Settings {
             disabled_providers: BTreeSet::new(),
             rail_side: RailSide::default(),
             vertical_offset: 0,
+            notifications_enabled: true,
+            notification_thresholds: BTreeSet::from(DEFAULT_THRESHOLDS),
         }
     }
 }
@@ -82,7 +99,25 @@ impl Settings {
             .vertical_offset
             .clamp(-MAX_VERTICAL_OFFSET, MAX_VERTICAL_OFFSET);
 
+        // A threshold of 0 would fire the moment a window opened, and one above
+        // 100 could never fire at all. Both are dropped rather than clamped:
+        // clamping 0 to 1 would invent an intention the user did not have.
+        self.notification_thresholds
+            .retain(|threshold| (1..=100).contains(threshold));
+
         self
+    }
+
+    /// The thresholds to actually alert on, honouring the on/off switch.
+    ///
+    /// Switching notifications off is expressed as having nothing to alert on,
+    /// so callers have one thing to consult rather than two that could disagree.
+    pub fn active_thresholds(&self) -> Vec<u8> {
+        if self.notifications_enabled {
+            self.notification_thresholds.iter().copied().collect()
+        } else {
+            Vec::new()
+        }
     }
 
     pub fn poll_interval(&self) -> Duration {
@@ -220,6 +255,8 @@ mod tests {
             disabled_providers: BTreeSet::from([ProviderId::Codex]),
             rail_side: RailSide::Left,
             vertical_offset: -120,
+            notifications_enabled: false,
+            notification_thresholds: BTreeSet::from([50, 90]),
         };
 
         SettingsStore::open(&dir.0)
@@ -346,11 +383,81 @@ mod tests {
             keys,
             [
                 "disabledProviders",
+                "notificationThresholds",
+                "notificationsEnabled",
                 "pollIntervalSeconds",
                 "railSide",
                 "verticalOffset"
             ],
             "the settings shape changed; confirm no credential material was added"
         );
+    }
+
+    #[test]
+    fn a_file_written_before_a_field_existed_keeps_everything_else() {
+        // Upgrading must not quietly reset someone's configuration. Without
+        // `#[serde(default)]` the whole file fails to parse over one missing
+        // field and every preference falls back to its default.
+        let dir = TempDir::new("older-version");
+        let contents = concat!(
+            r#"{"version":1,"settings":{"pollIntervalSeconds":900,"#,
+            r#""disabledProviders":["codex"],"railSide":"left","verticalOffset":-120}}"#
+        );
+        fs::write(dir.0.join(SETTINGS_FILE_NAME), contents).expect("should write");
+
+        let settings = SettingsStore::open(&dir.0).get();
+
+        assert_eq!(settings.poll_interval_seconds, 900);
+        assert_eq!(settings.rail_side, RailSide::Left);
+        assert_eq!(settings.vertical_offset, -120);
+        assert!(!settings.is_enabled(ProviderId::Codex));
+        // The fields that did not exist yet take their defaults.
+        assert!(settings.notifications_enabled);
+        assert_eq!(
+            settings.notification_thresholds,
+            BTreeSet::from(DEFAULT_THRESHOLDS)
+        );
+    }
+
+    #[test]
+    fn nonsense_thresholds_are_dropped_rather_than_clamped() {
+        // Clamping 0 to 1 would invent an intention the user did not have.
+        let settings = Settings {
+            notification_thresholds: BTreeSet::from([0, 80, 101, 255]),
+            ..Settings::default()
+        }
+        .sanitised();
+
+        assert_eq!(
+            settings.notification_thresholds,
+            BTreeSet::from([80]),
+            "an unusable threshold survived"
+        );
+    }
+
+    #[test]
+    fn switching_notifications_off_leaves_nothing_to_alert_on() {
+        let settings = Settings {
+            notifications_enabled: false,
+            ..Settings::default()
+        };
+
+        assert!(settings.active_thresholds().is_empty());
+        // The chosen thresholds are kept, so switching back on restores them
+        // rather than resetting to the defaults.
+        assert_eq!(
+            settings.notification_thresholds,
+            BTreeSet::from(DEFAULT_THRESHOLDS)
+        );
+    }
+
+    #[test]
+    fn active_thresholds_come_back_in_order() {
+        let settings = Settings {
+            notification_thresholds: BTreeSet::from([95, 50, 80]),
+            ..Settings::default()
+        };
+
+        assert_eq!(settings.active_thresholds(), vec![50, 80, 95]);
     }
 }

@@ -15,6 +15,9 @@ export type Settings = {
   railSide: RailSide;
   /** Nudge from vertical centre, in logical pixels. Positive moves down. */
   verticalOffset: number;
+  notificationsEnabled: boolean;
+  /** Percentages worth interrupting at. Sorted and deduplicated by the backend. */
+  notificationThresholds: number[];
 };
 
 export async function getSettings(): Promise<Settings> {

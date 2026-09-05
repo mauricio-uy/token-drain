@@ -16,6 +16,7 @@ use std::sync::{Arc, Mutex};
 use tokio::sync::{mpsc, Notify};
 
 use crate::cache::UsageCache;
+use crate::notify::{Alert, ThresholdTracker};
 use crate::providers::claude::ClaudeProvider;
 use crate::providers::codex::CodexProvider;
 use crate::providers::error::UsageError;
@@ -141,13 +142,15 @@ pub fn provider_order() -> Vec<ProviderId> {
 /// `on_update` is called with the fresh views after every poll. Passing it in
 /// rather than emitting directly keeps this function free of Tauri types and
 /// testable.
-pub fn start<F>(
+pub fn start<F, A>(
     cache_directory: &Path,
     settings: Arc<SettingsStore>,
     on_update: F,
+    on_alert: A,
 ) -> Result<Arc<UsageState>, UsageError>
 where
     F: Fn(Vec<ProviderView>) + Send + 'static,
+    A: Fn(Alert) + Send + 'static,
 {
     let registry = Arc::new(build_registry()?);
     let cache = UsageCache::open(cache_directory);
@@ -175,8 +178,27 @@ where
     ));
 
     let consumer_state = Arc::clone(&state);
+    let alert_settings = Arc::clone(&consumer_state.settings);
+    let mut tracker = ThresholdTracker::open(cache_directory);
     tauri::async_runtime::spawn(async move {
+
         while let Some(batch) = receiver.recv().await {
+            // Alerts are decided from the batch, before it is folded in, so the
+            // tracker sees each poll exactly once. Reading them back off the
+            // state afterwards would also see the cached figures on a failed
+            // poll and announce old news as if it had just happened.
+            let thresholds = alert_settings.get().active_thresholds();
+
+            if !thresholds.is_empty() {
+                for fetch in &batch {
+                    if let Ok(usage) = &fetch.result {
+                        for alert in tracker.observe(usage, &thresholds) {
+                            on_alert(alert);
+                        }
+                    }
+                }
+            }
+
             consumer_state.apply(batch);
             on_update(consumer_state.views());
         }

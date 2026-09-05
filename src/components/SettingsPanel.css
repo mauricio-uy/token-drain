@@ -122,3 +122,35 @@
 .settings input[type="range"] {
   accent-color: var(--level-ok);
 }
+
+/*
+ * Threshold chips. A toggle each, rather than a numeric editor: the value is a
+ * set of integers, and a row of on/off marks shows the whole set at a glance.
+ */
+.settings-chips {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.settings-chip {
+  padding: 4px 12px;
+  border: 1px solid var(--surface-line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.settings-chip.is-on {
+  border-color: var(--level-ok);
+  background: color-mix(in srgb, var(--level-ok) 20%, transparent);
+  color: var(--text);
+}
+
+.settings-chip:disabled {
+  opacity: 0.4;
+  cursor: default;
+}

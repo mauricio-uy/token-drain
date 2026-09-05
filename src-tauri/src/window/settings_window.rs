@@ -33,7 +33,7 @@ pub fn open(app: &AppHandle) {
     .title("tok-ching settings")
     // Sized to the content. The window cannot be resized, so slack at the
     // bottom is not something the user can tidy away themselves.
-    .inner_size(440.0, 530.0)
+    .inner_size(440.0, 690.0)
     .resizable(false)
     .center()
     .build();
