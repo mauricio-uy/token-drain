@@ -1,6 +1,7 @@
 pub mod cache;
 pub mod providers;
 pub mod runtime;
+pub mod tray;
 pub mod view;
 pub mod window;
 
@@ -41,6 +42,10 @@ pub fn run() {
                 })?;
 
             app.manage(state);
+
+            // After the state is managed, so the tray's Refresh item can reach
+            // it the first time it is clicked.
+            tray::build(app.handle())?;
 
             Ok(())
         })
