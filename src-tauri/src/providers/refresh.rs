@@ -11,12 +11,12 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, Notify};
 use tokio::task::JoinHandle;
 use tokio::time::Instant;
 
 use crate::providers::registry::{ProviderFetch, ProviderRegistry};
-use crate::providers::schedule::{RefreshSchedule, DEFAULT_POLL_INTERVAL};
+use crate::providers::schedule::{RefreshSchedule, DEFAULT_POLL_INTERVAL, MIN_POLL_INTERVAL};
 
 /// Tuning for the polling loop.
 #[derive(Debug, Clone)]
@@ -38,6 +38,22 @@ impl Default for RefreshConfig {
 struct ProviderState {
     schedule: RefreshSchedule,
     due_at: Instant,
+    last_polled: Option<Instant>,
+}
+
+/// Bring every provider forward to the earliest moment the floor allows.
+///
+/// A manual refresh may skip a remaining interval or a backoff, but it may not
+/// breach the minimum poll interval: a user holding down a refresh button must
+/// not be able to do what the configuration itself is forbidden from doing.
+fn bring_forward(states: &mut [ProviderState], now: Instant) {
+    for state in states {
+        let earliest = match state.last_polled {
+            Some(last) => last + MIN_POLL_INTERVAL,
+            None => now,
+        };
+        state.due_at = state.due_at.min(earliest.max(now)).max(earliest);
+    }
 }
 
 /// Run the polling loop until the receiver is dropped.
@@ -48,6 +64,7 @@ pub async fn run_refresh_loop(
     registry: Arc<ProviderRegistry>,
     config: RefreshConfig,
     sink: mpsc::Sender<Vec<ProviderFetch>>,
+    refresh_now: Arc<Notify>,
 ) {
     if registry.is_empty() {
         return;
@@ -58,6 +75,7 @@ pub async fn run_refresh_loop(
         .map(|_| ProviderState {
             schedule: RefreshSchedule::new(config.interval),
             due_at: now,
+            last_polled: None,
         })
         .collect();
 
@@ -78,7 +96,11 @@ pub async fn run_refresh_loop(
             let Some(next) = states.iter().map(|state| state.due_at).min() else {
                 return;
             };
-            tokio::time::sleep_until(next).await;
+
+            tokio::select! {
+                _ = tokio::time::sleep_until(next) => {}
+                _ = refresh_now.notified() => bring_forward(&mut states, Instant::now()),
+            }
             continue;
         }
 
@@ -93,6 +115,7 @@ pub async fn run_refresh_loop(
                 // the same treatment as a failure so it is retried later rather
                 // than being polled every pass forever.
                 if let Some(state) = states.get_mut(*index) {
+                    state.last_polled = Some(Instant::now());
                     state.due_at = Instant::now() + state.schedule.interval();
                 }
                 continue;
@@ -103,6 +126,7 @@ pub async fn run_refresh_loop(
                     Ok(_) => state.schedule.record_success(),
                     Err(error) => state.schedule.record_failure(error),
                 };
+                state.last_polled = Some(Instant::now());
                 state.due_at = Instant::now() + delay;
             }
         }
@@ -120,8 +144,9 @@ pub fn spawn_refresh_loop(
     registry: Arc<ProviderRegistry>,
     config: RefreshConfig,
     sink: mpsc::Sender<Vec<ProviderFetch>>,
+    refresh_now: Arc<Notify>,
 ) -> JoinHandle<()> {
-    tokio::spawn(run_refresh_loop(registry, config, sink))
+    tokio::spawn(run_refresh_loop(registry, config, sink, refresh_now))
 }
 
 #[cfg(test)]
@@ -167,7 +192,7 @@ mod tests {
             stub(ProviderId::Codex, StubOutcome::Succeeds { used_percent: 2.0 }),
         ]));
         let (sender, mut receiver) = mpsc::channel(8);
-        let _task = spawn_refresh_loop(registry, config(), sender);
+        let _task = spawn_refresh_loop(registry, config(), sender, Arc::new(Notify::new()));
 
         let batch = next_batch(&mut receiver).await;
 
@@ -184,7 +209,7 @@ mod tests {
             StubOutcome::Succeeds { used_percent: 1.0 },
         )]));
         let (sender, mut receiver) = mpsc::channel(8);
-        let _task = spawn_refresh_loop(registry, config(), sender);
+        let _task = spawn_refresh_loop(registry, config(), sender, Arc::new(Notify::new()));
 
         next_batch(&mut receiver).await;
 
@@ -205,7 +230,7 @@ mod tests {
             stub(ProviderId::Codex, StubOutcome::Succeeds { used_percent: 2.0 }),
         ]));
         let (sender, mut receiver) = mpsc::channel(8);
-        let _task = spawn_refresh_loop(registry, config(), sender);
+        let _task = spawn_refresh_loop(registry, config(), sender, Arc::new(Notify::new()));
 
         assert_eq!(next_batch(&mut receiver).await.len(), 2);
 
@@ -232,7 +257,7 @@ mod tests {
                 .with_timeout(Duration::from_secs(1)),
         );
         let (sender, mut receiver) = mpsc::channel(8);
-        let _task = spawn_refresh_loop(registry, config(), sender);
+        let _task = spawn_refresh_loop(registry, config(), sender, Arc::new(Notify::new()));
 
         let batch = next_batch(&mut receiver).await;
         assert!(matches!(batch[0].result, Err(UsageError::Network { .. })));
@@ -256,7 +281,7 @@ mod tests {
             },
         )]));
         let (sender, mut receiver) = mpsc::channel(8);
-        let _task = spawn_refresh_loop(registry, config(), sender);
+        let _task = spawn_refresh_loop(registry, config(), sender, Arc::new(Notify::new()));
 
         next_batch(&mut receiver).await;
 
@@ -279,7 +304,7 @@ mod tests {
             },
         )]));
         let (sender, mut receiver) = mpsc::channel(8);
-        let _task = spawn_refresh_loop(registry, config(), sender);
+        let _task = spawn_refresh_loop(registry, config(), sender, Arc::new(Notify::new()));
 
         next_batch(&mut receiver).await;
 
@@ -297,7 +322,7 @@ mod tests {
             StubOutcome::Fails,
         )]));
         let (sender, mut receiver) = mpsc::channel(8);
-        let _task = spawn_refresh_loop(registry, config(), sender);
+        let _task = spawn_refresh_loop(registry, config(), sender, Arc::new(Notify::new()));
 
         next_batch(&mut receiver).await;
 
@@ -311,13 +336,80 @@ mod tests {
     }
 
     #[tokio::test(start_paused = true)]
+    async fn a_manual_refresh_skips_the_remaining_interval() {
+        let registry = Arc::new(ProviderRegistry::new(vec![stub(
+            ProviderId::Claude,
+            StubOutcome::Succeeds { used_percent: 1.0 },
+        )]));
+        let (sender, mut receiver) = mpsc::channel(8);
+        let refresh = Arc::new(Notify::new());
+        let _task = spawn_refresh_loop(registry, config(), sender, Arc::clone(&refresh));
+
+        next_batch(&mut receiver).await;
+
+        // Past the floor but well short of the interval.
+        tokio::time::advance(MIN_POLL_INTERVAL + Duration::from_secs(5)).await;
+        assert!(receiver.try_recv().is_err(), "polled without being asked");
+
+        refresh.notify_waiters();
+        assert_eq!(next_batch(&mut receiver).await.len(), 1);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn a_manual_refresh_cannot_breach_the_floor() {
+        // A user holding down a refresh button must not be able to do what the
+        // configuration itself is forbidden from doing.
+        let registry = Arc::new(ProviderRegistry::new(vec![stub(
+            ProviderId::Claude,
+            StubOutcome::Succeeds { used_percent: 1.0 },
+        )]));
+        let (sender, mut receiver) = mpsc::channel(8);
+        let refresh = Arc::new(Notify::new());
+        let _task = spawn_refresh_loop(registry, config(), sender, Arc::clone(&refresh));
+
+        next_batch(&mut receiver).await;
+
+        tokio::time::advance(Duration::from_secs(5)).await;
+        refresh.notify_waiters();
+        tokio::time::advance(Duration::from_secs(5)).await;
+        assert!(
+            receiver.try_recv().is_err(),
+            "a manual refresh polled inside the floor"
+        );
+
+        // Once the floor has passed, the brought-forward poll happens.
+        tokio::time::advance(MIN_POLL_INTERVAL).await;
+        assert_eq!(next_batch(&mut receiver).await.len(), 1);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn a_manual_refresh_revives_a_provider_parked_at_the_ceiling() {
+        // The point of the button: a provider that failed permanently should not
+        // make the user wait out the ceiling after they have fixed it.
+        let registry = Arc::new(ProviderRegistry::new(vec![stub(
+            ProviderId::Claude,
+            StubOutcome::Fails,
+        )]));
+        let (sender, mut receiver) = mpsc::channel(8);
+        let refresh = Arc::new(Notify::new());
+        let _task = spawn_refresh_loop(registry, config(), sender, Arc::clone(&refresh));
+
+        next_batch(&mut receiver).await;
+
+        tokio::time::advance(MIN_POLL_INTERVAL + Duration::from_secs(1)).await;
+        refresh.notify_waiters();
+
+        assert_eq!(next_batch(&mut receiver).await.len(), 1);
+    }
+
+    #[tokio::test(start_paused = true)]
     async fn the_loop_stops_when_the_consumer_goes_away() {
         let registry = Arc::new(ProviderRegistry::new(vec![stub(
             ProviderId::Claude,
             StubOutcome::Succeeds { used_percent: 1.0 },
         )]));
         let (sender, receiver) = mpsc::channel(8);
-        let task = spawn_refresh_loop(registry, config(), sender);
+        let task = spawn_refresh_loop(registry, config(), sender, Arc::new(Notify::new()));
 
         drop(receiver);
         tokio::time::advance(INTERVAL * 2).await;
@@ -333,7 +425,7 @@ mod tests {
         let registry = Arc::new(ProviderRegistry::new(vec![]));
         let (sender, _receiver) = mpsc::channel(8);
 
-        let task = spawn_refresh_loop(registry, config(), sender);
+        let task = spawn_refresh_loop(registry, config(), sender, Arc::new(Notify::new()));
 
         tokio::time::timeout(Duration::from_secs(1), task)
             .await

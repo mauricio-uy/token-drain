@@ -1,38 +1,54 @@
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import "./App.css";
 import { useInteractiveRegions } from "./lib/interaction";
+import { refreshNow, useUsage, type ProviderView } from "./lib/usage";
 
 /**
  * Phase 4 shell probe.
  *
- * Deliberately not the real UI. It verifies the window itself: that it is
- * chromeless, that everything around the rectangle is genuinely transparent
- * rather than white, that Windows draws no shadow of its own, that it floats
- * above other windows, and that only the rectangle captures the mouse while the
- * transparent area passes clicks through to the desktop.
+ * Deliberately not the real UI. It verifies the shell end to end: that the
+ * window is chromeless and transparent, that only the drawn panel captures the
+ * mouse, and that live figures actually arrive from the Rust side over IPC.
  *
  * Replaced by the rail in Phase 5.
  */
 function App() {
-  const rectRef = useRef<HTMLDivElement>(null);
-  const [hovered, setHovered] = useState(false);
-  const [clicks, setClicks] = useState(0);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const views = useUsage();
 
-  useInteractiveRegions([rectRef]);
+  useInteractiveRegions([panelRef]);
 
   return (
     <div className="probe-root">
-      <div
-        ref={rectRef}
-        className={`probe-rect ${hovered ? "is-hovered" : ""}`}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-        onClick={() => setClicks((count) => count + 1)}
-      >
-        <span className="probe-label">
-          {hovered ? "hover ok" : "shell probe"} · {clicks}
-        </span>
+      <div ref={panelRef} className="probe-panel">
+        <button className="probe-refresh" onClick={() => void refreshNow()}>
+          refresh
+        </button>
+        {views.length === 0 ? (
+          <p className="probe-empty">waiting for the first snapshot…</p>
+        ) : (
+          views.map((view) => <ProviderRow key={view.provider} view={view} />)
+        )}
       </div>
+    </div>
+  );
+}
+
+function ProviderRow({ view }: { view: ProviderView }) {
+  // The invariant made visible: a failing provider has no percentage to show,
+  // so the row prints its state instead of a number.
+  const session = view.usage?.session;
+  const weekly = view.usage?.weekly;
+
+  return (
+    <div className="probe-provider">
+      <div className="probe-provider-head">
+        <strong>{view.provider}</strong>
+        <span className={`probe-state probe-state--${view.state}`}>{view.state}</span>
+      </div>
+      {session && <div>session: {session.usedPercent.toFixed(0)}%</div>}
+      {weekly && <div>weekly: {weekly.usedPercent.toFixed(0)}%</div>}
+      {view.remediation && <div className="probe-note">{view.remediation.message}</div>}
     </div>
   );
 }
