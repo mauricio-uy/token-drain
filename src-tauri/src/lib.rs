@@ -1,3 +1,4 @@
+pub mod autostart;
 pub mod cache;
 pub mod providers;
 pub mod runtime;
@@ -9,7 +10,9 @@ pub mod window;
 use std::sync::Arc;
 
 use tauri::{Emitter, Manager};
+use tauri_plugin_autostart::MacosLauncher;
 
+use autostart::{get_launch_at_login, set_launch_at_login};
 use runtime::{
     get_settings, get_usage_snapshot, list_providers, refresh_now, set_settings, UsageState,
     USAGE_UPDATED_EVENT,
@@ -23,6 +26,28 @@ pub const RAIL_WINDOW_LABEL: &str = "rail";
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // Registered before everything else, as the plugin requires: its whole
+        // job is to hand off and exit before a second instance can start
+        // building windows, tray icons and pollers it is about to throw away.
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            // The rail has no focus to give — it is chromeless, always on top
+            // and skips the taskbar, so there is no window to raise. Being
+            // launched again means "show me", which for this app means making
+            // sure the rail is on screen and in the right place.
+            if let Some(rail) = app.get_webview_window(RAIL_WINDOW_LABEL) {
+                let _ = rail.show();
+
+                if let Some(settings) = app.try_state::<Arc<SettingsStore>>() {
+                    window::dock(&rail, &settings.get());
+                }
+            }
+        }))
+        .plugin(tauri_plugin_autostart::init(
+            // Windows-only app today; the launcher choice only matters on macOS
+            // and this is the conventional one to pass.
+            MacosLauncher::LaunchAgent,
+            None,
+        ))
         .plugin(tauri_plugin_opener::init())
         .manage(InteractiveRegions::default())
         .invoke_handler(tauri::generate_handler![
@@ -31,7 +56,9 @@ pub fn run() {
             refresh_now,
             get_settings,
             list_providers,
-            set_settings
+            set_settings,
+            get_launch_at_login,
+            set_launch_at_login
         ])
         .setup(|app| {
             let data_directory = app.path().app_data_dir()?;

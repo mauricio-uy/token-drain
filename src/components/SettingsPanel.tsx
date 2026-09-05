@@ -52,7 +52,8 @@ function Section({
 }
 
 export function SettingsPanel() {
-  const { settings, providers, error, update } = useSettings();
+  const { settings, providers, launchAtLogin, error, update, updateLaunchAtLogin } =
+    useSettings();
 
   // Nothing is rendered until the real values arrive. Showing defaults first
   // would flash a configuration the user does not have, and any control touched
@@ -162,6 +163,17 @@ export function SettingsPanel() {
           </button>
         </div>
         <p className="settings-hint">{describeOffset(settings.verticalOffset)}</p>
+      </Section>
+
+      <Section title="Startup">
+        <label className="settings-check">
+          <input
+            type="checkbox"
+            checked={launchAtLogin}
+            onChange={(event) => updateLaunchAtLogin(event.target.checked)}
+          />
+          Launch at login
+        </label>
       </Section>
     </div>
   );
