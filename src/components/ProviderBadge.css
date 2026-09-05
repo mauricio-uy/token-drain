@@ -1,0 +1,101 @@
+.badge {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: default;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+
+  color: var(--text);
+}
+
+.badge-ring {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: var(--badge-size);
+  height: var(--badge-size);
+}
+
+.badge-ring svg {
+  position: absolute;
+  inset: 0;
+}
+
+.badge-ring-track {
+  stroke: var(--level-track);
+}
+
+/*
+ * The arc animates rather than jumping. A quota moving from 62% to 71% between
+ * polls is a change worth seeing happen; a hard cut just looks like a redraw.
+ */
+.badge-ring-value {
+  transition: stroke-dashoffset 600ms cubic-bezier(0.22, 1, 0.36, 1), stroke 300ms linear;
+}
+
+.badge-ring-value--ok {
+  stroke: var(--level-ok);
+}
+
+.badge-ring-value--warn {
+  stroke: var(--level-warn);
+}
+
+.badge-ring-value--high {
+  stroke: var(--level-high);
+}
+
+.badge-mark {
+  position: relative;
+  display: grid;
+  place-items: center;
+  color: var(--text);
+}
+
+.badge-label {
+  font: 600 12px/1 system-ui, sans-serif;
+  letter-spacing: 0.01em;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * Failure states dim the mark and mute the label. The ring is left as bare
+ * track: an empty gauge reads as "no reading", which is the truth, where a
+ * coloured arc at zero would read as "nothing used yet".
+ */
+.badge--pending .badge-mark,
+.badge--unavailable .badge-mark,
+.badge--reauth .badge-mark,
+.badge--error .badge-mark {
+  opacity: 0.45;
+}
+
+.badge--pending .badge-label,
+.badge--unavailable .badge-label {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.badge--reauth .badge-label,
+.badge--error .badge-label {
+  color: var(--level-high);
+  font-weight: 600;
+}
+
+/* Stale data is real data, just not current: shown at reduced strength rather
+   than hidden, since old figures still tell the user roughly where they stand. */
+.badge--stale .badge-ring-value,
+.badge--stale .badge-mark,
+.badge--stale .badge-label {
+  opacity: 0.55;
+}
+
+.badge.is-active .badge-mark {
+  opacity: 1;
+}

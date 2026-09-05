@@ -66,10 +66,3 @@
   );
 }
 
-/* Placeholder slot, replaced by the real badge in Step 5.2. */
-.rail-slot {
-  width: var(--badge-size);
-  height: var(--badge-size);
-  border-radius: 50%;
-  border: var(--badge-ring) solid var(--level-track);
-}
