@@ -99,7 +99,9 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
                 // was asked for. If show() failed, the menu should say so.
                 let _ = checkbox.set_checked(rail_is_visible(app));
             }
-            MENU_SETTINGS => settings_window::open(app),
+            MENU_SETTINGS => {
+                let _ = settings_window::open(app);
+            }
             MENU_QUIT => app.exit(0),
             _ => {}
         });

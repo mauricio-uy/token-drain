@@ -6,7 +6,7 @@ import { UsageCard } from "./UsageCard";
 import { useNow } from "../lib/format";
 import { useInteractiveRegions } from "../lib/interaction";
 import type { ProviderView } from "../lib/usage";
-import type { RailSide } from "../lib/settings";
+import { openSettingsWindow, type RailSide } from "../lib/settings";
 
 /** Keep the card this far from the window edges. */
 const EDGE_MARGIN = 8;
@@ -63,12 +63,16 @@ export function Rail({ views, side = "right" }: { views: ProviderView[]; side?: 
   const railRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const bridgeRef = useRef<HTMLSpanElement>(null);
-  const interactiveRefs = useMemo(() => [triggerRef, railRef, cardRef, bridgeRef], []);
+  const settingsRef = useRef<HTMLDivElement>(null);
+  const settingsErrorRef = useRef<HTMLParagraphElement>(null);
+  const interactiveRefs = useMemo(() => [triggerRef, railRef, cardRef, bridgeRef, settingsRef, settingsErrorRef], []);
   const movingRefs = useMemo(() => [dockRef], []);
   const badgeRefs = useRef(new Map<string, HTMLElement>());
 
   const [active, setActive] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
+  const [openingSettings, setOpeningSettings] = useState(false);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [placement, setPlacement] = useState<Placement>({ top: 0, tailOffset: 0 });
   const reduceMotion = useReducedMotion();
@@ -90,6 +94,19 @@ export function Rail({ views, side = "right" }: { views: ProviderView[]; side?: 
   };
   const scheduleClose = () => {
     if (closeTimer.current === null) closeTimer.current = setTimeout(collapse, 180);
+  };
+  const showSettings = async () => {
+    if (openingSettings) return;
+    setOpeningSettings(true);
+    setSettingsError(null);
+    try {
+      await openSettingsWindow();
+      collapse();
+    } catch {
+      setSettingsError("Could not open settings. Try again.");
+    } finally {
+      setOpeningSettings(false);
+    }
   };
   useEffect(() => () => {
     if (closeTimer.current !== null) clearTimeout(closeTimer.current);
@@ -237,6 +254,28 @@ export function Rail({ views, side = "right" }: { views: ProviderView[]; side?: 
           </div>
         ))}
         </div>
+      </div>
+      <div ref={settingsRef} className="rail-settings-area">
+        <button
+          type="button"
+          className="rail-settings-button"
+          aria-label="Open settings"
+          title="Settings"
+          disabled={openingSettings}
+          onPointerEnter={() => setActive(null)}
+          onFocus={() => setActive(null)}
+          onClick={() => void showSettings()}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="m9 3-.5 2.1-1.4.8L5 5.3 2 10l1.6 1.5v1L2 14l3 4.7 2.1-.6 1.4.8L9 21h6l.5-2.1 1.4-.8 2.1.6 3-4.7-1.6-1.5v-1L22 10l-3-4.7-2.1.6-1.4-.8L15 3Z" />
+            <circle cx="12" cy="12" r="3.2" />
+          </svg>
+        </button>
+        <p ref={settingsErrorRef} className="rail-settings-error" role="alert"
+          aria-hidden={!settingsError} inert={!settingsError}>
+          {settingsError}
+        </p>
       </div>
       </motion.div>
     </div>

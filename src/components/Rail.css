@@ -71,6 +71,75 @@
   outline-offset: -2px;
 }
 
+/* The padded area bridges the pointer path below the concave lower fillet. */
+.rail-settings-area {
+  position: absolute;
+  top: 100%;
+  right: 8px;
+  width: 64px;
+  padding-top: calc(var(--rail-corner) + 8px);
+  display: flex;
+  justify-content: center;
+}
+
+.rail-settings-button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--surface-line);
+  border-radius: 50%;
+  background: var(--surface-raised);
+  color: var(--text-muted);
+  box-shadow: 0 2px 6px rgb(0 0 0 / 25%);
+  cursor: pointer;
+}
+
+.rail-settings-button:hover,
+.rail-settings-button:focus-visible {
+  color: var(--text);
+  border-color: var(--text-muted);
+}
+
+.rail-settings-button:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 3px;
+}
+
+.rail-settings-button:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+.rail-settings-error {
+  position: absolute;
+  right: calc(100% + 8px);
+  bottom: 0;
+  width: min(200px, calc(100vw - 100px));
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--surface-line);
+  border-radius: 10px;
+  background: var(--surface-raised);
+  color: var(--text);
+  font: 400 12px/1.4 system-ui, sans-serif;
+}
+
+.rail-settings-error[aria-hidden="true"] {
+  display: none;
+}
+
+.rail-root[data-side="left"] .rail-settings-area {
+  right: auto;
+  left: 8px;
+}
+
+.rail-root[data-side="left"] .rail-settings-error {
+  right: auto;
+  left: calc(100% + 8px);
+}
+
 .rail-root[data-side="left"] .rail-dock,
 .rail-root[data-side="left"] .rail-trigger {
   right: auto;

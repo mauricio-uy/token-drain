@@ -37,12 +37,12 @@ fn rail_browser_args(app: &AppHandle) -> Option<String> {
 ///
 /// Never opens a second copy: two settings windows would be two views of one
 /// file, and whichever was saved last would silently win.
-pub fn open(app: &AppHandle) {
+pub fn open(app: &AppHandle) -> tauri::Result<()> {
     if let Some(window) = app.get_webview_window(SETTINGS_WINDOW_LABEL) {
-        let _ = window.unminimize();
-        let _ = window.show();
-        let _ = window.set_focus();
-        return;
+        window.unminimize()?;
+        window.show()?;
+        window.set_focus()?;
+        return Ok(());
     }
 
     let mut builder = WebviewWindowBuilder::new(
@@ -61,7 +61,13 @@ pub fn open(app: &AppHandle) {
         builder = builder.additional_browser_args(&args);
     }
 
-    let _ = builder.build();
+    builder.build().map(|_| ())
+}
+
+/// Async so WebView2 creation is not blocked by a synchronous IPC command.
+#[tauri::command]
+pub async fn open_settings(app: AppHandle) -> Result<(), String> {
+    open(&app).map_err(|_| "Could not open settings window.".to_owned())
 }
 
 #[cfg(test)]

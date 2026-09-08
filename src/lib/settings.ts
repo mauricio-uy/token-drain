@@ -27,6 +27,11 @@ export async function getSettings(): Promise<Settings> {
   return invoke<Settings>("get_settings");
 }
 
+/** Open or focus the existing settings window. */
+export async function openSettingsWindow(): Promise<void> {
+  await invoke("open_settings");
+}
+
 /** Follow docking preferences in the rail without loading the settings form. */
 export function useRailSide(): RailSide {
   const [side, setSide] = useState<RailSide>("right");

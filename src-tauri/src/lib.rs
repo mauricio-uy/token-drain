@@ -20,6 +20,7 @@ use runtime::{
 };
 use settings::SettingsStore;
 use window::interaction::{set_interactive_regions, InteractiveRegions};
+use window::settings_window::open_settings;
 
 /// Label of the rail window, matching `tauri.conf.json`.
 pub const RAIL_WINDOW_LABEL: &str = "rail";
@@ -79,7 +80,8 @@ pub fn run() {
             list_providers,
             set_settings,
             get_launch_at_login,
-            set_launch_at_login
+            set_launch_at_login,
+            open_settings
         ])
         .setup(|app| {
             let data_directory = data_directory(app.handle());
