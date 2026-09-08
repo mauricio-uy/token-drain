@@ -2,10 +2,8 @@ import "./ProviderBadge.css";
 import { ProviderLogo } from "./ProviderLogo";
 import type { BadgeState, ProviderView } from "../lib/usage";
 
-const RING_SIZE = 56;
+const RING_SIZE = 64;
 const RING_STROKE = 4;
-const RING_RADIUS = (RING_SIZE - RING_STROKE) / 2;
-const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 
 /**
  * Severity of a usage figure.
@@ -36,12 +34,33 @@ function labelFor(state: BadgeState): string {
   }
 }
 
-/**
- * One provider: a progress ring around its mark, with the session figure below.
- *
- * The ring shows the **session** window, because that is the number that
- * changes while you work. The weekly figure is one hover away in the card.
- */
+function QuotaRing({ radius, percent, window }: {
+  radius: number;
+  percent: number | null;
+  window: "5h" | "7d";
+}) {
+  return (
+    <g data-window={window}>
+      <circle className="badge-ring-track" cx="32" cy="32" r={radius}
+        strokeWidth={RING_STROKE} fill="none" />
+      {percent !== null && percent > 0 && (
+        <circle
+          className={`badge-ring-value badge-ring-value--${severityOf(percent)}`}
+          cx="32" cy="32" r={radius} strokeWidth={RING_STROKE} fill="none"
+          strokeLinecap="round" pathLength="100" strokeDasharray="100"
+          strokeDashoffset={100 - Math.min(Math.max(percent, 0), 100)}
+          transform="rotate(-90 32 32)"
+        />
+      )}
+    </g>
+  );
+}
+
+function percentLabel(percent: number | null): string {
+  return percent === null ? "—" : `${Math.round(percent)}%`;
+}
+
+/** Outer ring: five-hour quota. Inner ring: seven-day quota. One shared logo. */
 export function ProviderBadge({
   view,
   active,
@@ -55,14 +74,10 @@ export function ProviderBadge({
 }) {
   const session = view.usage?.session ?? null;
   const percent = session?.usedPercent ?? null;
-
-  // A failure has no figure, so it draws an empty track and says what is wrong
-  // instead. Rendering 0% here would be indistinguishable from a fresh quota.
-  const severity = percent === null ? null : severityOf(percent);
-  const offset =
-    percent === null
-      ? RING_CIRCUMFERENCE
-      : RING_CIRCUMFERENCE * (1 - Math.min(Math.max(percent, 0), 100) / 100);
+  const weeklyPercent = view.usage?.weekly?.usedPercent ?? null;
+  const description = view.usage
+    ? `5h ${percent === null ? "not reported" : `${Math.round(percent)}% used`}, 7d ${weeklyPercent === null ? "not reported" : `${Math.round(weeklyPercent)}% used`}`
+    : view.state;
 
   return (
     <button
@@ -72,42 +87,29 @@ export function ProviderBadge({
       onFocus={() => onEnter(view.provider)}
       aria-expanded={cardId ? active : undefined}
       aria-controls={cardId}
-      aria-label={`${view.provider}: ${percent === null ? view.state : `${Math.round(percent)}% used`}`}
+      aria-label={`${view.provider}: ${description}${view.state === "stale" ? ", stale" : ""}`}
     >
       <span className="badge-ring">
-        <svg width={RING_SIZE} height={RING_SIZE} viewBox={`0 0 ${RING_SIZE} ${RING_SIZE}`}>
-          <circle
-            className="badge-ring-track"
-            cx={RING_SIZE / 2}
-            cy={RING_SIZE / 2}
-            r={RING_RADIUS}
-            strokeWidth={RING_STROKE}
-            fill="none"
-          />
-          {severity && (
-            <circle
-              className={`badge-ring-value badge-ring-value--${severity}`}
-              cx={RING_SIZE / 2}
-              cy={RING_SIZE / 2}
-              r={RING_RADIUS}
-              strokeWidth={RING_STROKE}
-              fill="none"
-              strokeLinecap="round"
-              strokeDasharray={RING_CIRCUMFERENCE}
-              strokeDashoffset={offset}
-              /* Start the arc at twelve o'clock rather than three, so a nearly
-                 empty ring reads as a gauge instead of a stray tick. */
-              transform={`rotate(-90 ${RING_SIZE / 2} ${RING_SIZE / 2})`}
-            />
-          )}
+        <svg aria-hidden="true" width={RING_SIZE} height={RING_SIZE} viewBox={`0 0 ${RING_SIZE} ${RING_SIZE}`}>
+          <QuotaRing radius={30} percent={percent} window="5h" />
+          <QuotaRing radius={23} percent={weeklyPercent} window="7d" />
         </svg>
         <span className="badge-mark">
           <ProviderLogo provider={view.provider} size={22} />
         </span>
       </span>
-      <span className="badge-label">
-        {percent === null ? labelFor(view.state) : `${Math.round(percent)}%`}
-      </span>
+      {view.usage ? (
+        <span className="badge-quotas" aria-hidden="true">
+          <span className="badge-quota" title="Outer ring · 5 hours">
+            <span className="badge-window-label">5h</span>
+            <span className="badge-label">{percentLabel(percent)}</span>
+          </span>
+          <span className="badge-quota" title="Inner ring · 7 days">
+            <span className="badge-window-label">7d</span>
+            <span className="badge-label">{percentLabel(weeklyPercent)}</span>
+          </span>
+        </span>
+      ) : <span className="badge-label badge-status">{labelFor(view.state)}</span>}
     </button>
   );
 }

@@ -64,6 +64,30 @@
   font-variant-numeric: tabular-nums;
 }
 
+.badge-quotas {
+  display: flex;
+  gap: 14px;
+}
+
+.badge-quota {
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  min-width: 28px;
+}
+
+.badge-window-label {
+  color: var(--text-muted);
+  font: 500 9px/1 system-ui, sans-serif;
+  letter-spacing: 0.04em;
+}
+
+.badge-status {
+  min-height: 24px;
+  display: grid;
+  align-items: center;
+}
+
 /*
  * Failure states dim the mark and mute the label. The ring is left as bare
  * track: an empty gauge reads as "no reading", which is the truth, where a
