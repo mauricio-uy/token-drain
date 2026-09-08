@@ -58,8 +58,7 @@
   width: 4px;
   height: 88px;
   border-radius: 999px 0 0 999px;
-  background: linear-gradient(#666678, #d4d4df 48%, #666678);
-  box-shadow: 0 0 0 1px rgb(0 0 0 / 25%), -2px 0 9px rgb(0 0 0 / 30%);
+  background: #000000;
 }
 
 .rail-trigger[aria-hidden="true"] {
