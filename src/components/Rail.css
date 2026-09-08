@@ -81,6 +81,14 @@
   right: calc(var(--rail-width) + var(--card-gap));
   top: 0;
   transform-origin: right center;
+  max-width: calc(100% - var(--rail-width) - var(--card-gap) - 16px);
+}
+
+.rail-card .card-content {
+  max-height: calc(100vh - 46px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  overscroll-behavior: contain;
 }
 
 /* Keep the pointer in the same surface while it crosses the visual gap. */

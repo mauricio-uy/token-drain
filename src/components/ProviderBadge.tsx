@@ -46,10 +46,12 @@ export function ProviderBadge({
   view,
   active,
   onEnter,
+  cardId,
 }: {
   view: ProviderView;
   active: boolean;
   onEnter: (provider: string) => void;
+  cardId?: string;
 }) {
   const session = view.usage?.session ?? null;
   const percent = session?.usedPercent ?? null;
@@ -68,6 +70,8 @@ export function ProviderBadge({
       className={`badge badge--${view.state} ${active ? "is-active" : ""}`}
       onMouseEnter={() => onEnter(view.provider)}
       onFocus={() => onEnter(view.provider)}
+      aria-expanded={cardId ? active : undefined}
+      aria-controls={cardId}
       aria-label={`${view.provider}: ${percent === null ? view.state : `${Math.round(percent)}% used`}`}
     >
       <span className="badge-ring">

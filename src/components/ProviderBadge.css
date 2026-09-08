@@ -99,3 +99,15 @@
 .badge.is-active .badge-mark {
   opacity: 1;
 }
+
+.badge:focus-visible {
+  outline: 2px solid var(--level-ok);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .badge-ring-value {
+    transition: none;
+  }
+}

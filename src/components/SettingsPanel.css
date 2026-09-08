@@ -8,7 +8,7 @@
 
 .settings {
   min-height: 100%;
-  padding: 20px 22px 26px;
+  padding: 16px 18px 20px;
   background: var(--surface-raised);
   color: var(--text);
   font: 400 13px/1.45 system-ui, sans-serif;
@@ -21,15 +21,48 @@
 }
 
 .settings-section + .settings-section {
-  margin-top: 22px;
-  padding-top: 20px;
+  margin-top: 12px;
+  padding-top: 12px;
   border-top: 1px solid var(--surface-line);
 }
 
 .settings-title {
-  margin: 0 0 4px;
+  margin: 0;
   font-size: 13px;
   font-weight: 600;
+}
+
+.settings-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 28px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.settings-summary::-webkit-details-marker {
+  display: none;
+}
+
+.settings-summary::after {
+  content: "›";
+  color: var(--text-muted);
+  font-size: 18px;
+}
+
+.settings-section[open] > .settings-summary::after {
+  transform: rotate(90deg);
+}
+
+.settings-section-body {
+  padding-top: 6px;
+}
+
+.settings :focus-visible {
+  outline: 2px solid var(--level-ok);
+  outline-offset: 3px;
+  border-radius: 4px;
 }
 
 .settings-hint {
@@ -45,6 +78,7 @@
 }
 
 .settings-error {
+  overflow-wrap: anywhere;
   margin: 0 0 16px;
   padding: 8px 10px;
   border-radius: 8px;
@@ -77,7 +111,8 @@
 
 .settings-choices {
   display: flex;
-  gap: 20px;
+  flex-wrap: wrap;
+  gap: 8px 20px;
 }
 
 .settings-select {
@@ -129,6 +164,7 @@
  */
 .settings-chips {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-top: 12px;
 }

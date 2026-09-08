@@ -1,4 +1,5 @@
 import "./SettingsPanel.css";
+import { useId } from "react";
 import { ProviderLogo } from "./ProviderLogo";
 import { useSettings, type RailSide, type Settings } from "../lib/settings";
 
@@ -45,18 +46,25 @@ function nameFor(provider: string): string {
 function Section({
   title,
   hint,
+  defaultOpen = true,
   children,
 }: {
   title: string;
   hint?: string;
+  defaultOpen?: boolean;
   children: React.ReactNode;
 }) {
+  const titleId = useId();
   return (
-    <section className="settings-section">
-      <h2 className="settings-title">{title}</h2>
-      {hint && <p className="settings-hint">{hint}</p>}
-      {children}
-    </section>
+    <details className="settings-section" open={defaultOpen}>
+      <summary className="settings-summary">
+        <h2 id={titleId} className="settings-title">{title}</h2>
+      </summary>
+      <div className="settings-section-body" role="group" aria-labelledby={titleId}>
+        {hint && <p className="settings-hint">{hint}</p>}
+        {children}
+      </div>
+    </details>
   );
 }
 
@@ -127,6 +135,7 @@ export function SettingsPanel() {
       <Section title="Check every">
         <select
           className="settings-select"
+          aria-label="Check every"
           value={nearestInterval(settings.pollIntervalSeconds)}
           onChange={(event) =>
             update({ pollIntervalSeconds: Number(event.target.value) })
@@ -141,7 +150,7 @@ export function SettingsPanel() {
       </Section>
 
       <Section title="Side">
-        <div className="settings-choices">
+        <div className="settings-choices" role="radiogroup" aria-label="Dock edge">
           {(["right", "left"] as RailSide[]).map((side) => (
             <label key={side} className="settings-check">
               <input
@@ -160,6 +169,8 @@ export function SettingsPanel() {
         <div className="settings-slider">
           <input
             type="range"
+            aria-label="Vertical position"
+            aria-valuetext={describeOffset(settings.verticalOffset)}
             min={-MAX_VERTICAL_OFFSET}
             max={MAX_VERTICAL_OFFSET}
             step={10}
@@ -216,7 +227,7 @@ export function SettingsPanel() {
         </div>
       </Section>
 
-      <Section title="Startup">
+      <Section title="Startup" defaultOpen={false}>
         <label className="settings-check">
           <input
             type="checkbox"

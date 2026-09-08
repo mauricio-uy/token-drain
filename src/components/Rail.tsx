@@ -1,5 +1,5 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import "./Rail.css";
 import { ProviderBadge } from "./ProviderBadge";
 import { UsageCard } from "./UsageCard";
@@ -66,6 +66,7 @@ export function Rail({ views, side = "right" }: { views: ProviderView[]; side?: 
 
   const [active, setActive] = useState<string | null>(null);
   const [placement, setPlacement] = useState<Placement>({ top: 0, tailOffset: 0 });
+  const reduceMotion = useReducedMotion();
 
   const activeView = views.find((view) => view.provider === active) ?? null;
 
@@ -79,26 +80,50 @@ export function Rail({ views, side = "right" }: { views: ProviderView[]; side?: 
     const card = cardRef.current;
     if (!root || !badge || !card) return;
 
-    const rootBox = root.getBoundingClientRect();
-    const badgeBox = badge.getBoundingClientRect();
-    const cardHeight = card.offsetHeight;
+    const place = () => {
+      const rootBox = root.getBoundingClientRect();
+      const badgeBox = badge.getBoundingClientRect();
+      const cardHeight = card.offsetHeight;
 
-    const badgeCentre = badgeBox.top + badgeBox.height / 2 - rootBox.top;
+      const badgeCentre = badgeBox.top + badgeBox.height / 2 - rootBox.top;
 
     // Centre on the badge, then keep the whole card on screen. Clamping the top
     // rather than the tail is what lets the tail keep pointing at the badge even
     // when the card has been pushed away from it.
-    const lowest = Math.max(rootBox.height - cardHeight - EDGE_MARGIN, EDGE_MARGIN);
-    const top = Math.min(Math.max(badgeCentre - cardHeight / 2, EDGE_MARGIN), lowest);
+      const lowest = Math.max(rootBox.height - cardHeight - EDGE_MARGIN, EDGE_MARGIN);
+      const top = Math.min(Math.max(badgeCentre - cardHeight / 2, EDGE_MARGIN), lowest);
+      const tailOffset = Math.max(18, Math.min(badgeCentre - top, cardHeight - 18));
 
-    setPlacement({ top, tailOffset: badgeCentre - top });
+      setPlacement((current) => current.top === top && current.tailOffset === tailOffset
+        ? current : { top, tailOffset });
+    };
+    place();
+    const observer = new ResizeObserver(place);
+    observer.observe(root);
+    observer.observe(card);
+    return () => observer.disconnect();
   }, [activeView, views]);
 
   useInteractiveRegions(interactiveRefs, side);
 
   return (
-    <div ref={rootRef} className="rail-root" data-side={side} onMouseLeave={() => setActive(null)}>
+    <div
+      ref={rootRef}
+      className="rail-root"
+      data-side={side}
+      onMouseLeave={() => setActive(null)}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) setActive(null);
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          setActive(null);
+        }
+      }}
+    >
       <motion.div
+        id="usage-card"
         ref={cardRef}
         className="rail-card card-surface"
         animate={{
@@ -106,7 +131,7 @@ export function Rail({ views, side = "right" }: { views: ProviderView[]; side?: 
           opacity: activeView ? 1 : 0,
           scale: activeView ? 1 : 0.97,
         }}
-        transition={{ ...FOLLOW_SPRING, opacity: CROSSFADE, scale: CROSSFADE }}
+        transition={reduceMotion ? { duration: 0 } : { ...FOLLOW_SPRING, opacity: CROSSFADE, scale: CROSSFADE }}
         // Hidden from the pointer and from assistive technology when closed;
         // it is still in the tree, just not participating.
         aria-hidden={!activeView}
@@ -119,7 +144,7 @@ export function Rail({ views, side = "right" }: { views: ProviderView[]; side?: 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={CROSSFADE}
+              transition={reduceMotion ? { duration: 0 } : CROSSFADE}
             >
               <LiveUsageCard view={activeView} />
             </motion.div>
@@ -134,7 +159,7 @@ export function Rail({ views, side = "right" }: { views: ProviderView[]; side?: 
           className="card-tail"
           aria-hidden="true"
           animate={{ y: placement.tailOffset - 10 }}
-          transition={FOLLOW_SPRING}
+          transition={reduceMotion ? { duration: 0 } : FOLLOW_SPRING}
         />
       </motion.div>
 
@@ -151,6 +176,7 @@ export function Rail({ views, side = "right" }: { views: ProviderView[]; side?: 
               view={view}
               active={active === view.provider}
               onEnter={setActive}
+              cardId="usage-card"
             />
           </div>
         ))}
