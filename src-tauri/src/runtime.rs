@@ -119,6 +119,18 @@ impl UsageState {
     pub fn request_refresh(&self) {
         self.refresh_now.notify_waiters();
     }
+
+    /// Persist preferences, waking providers only when their polling policy changes.
+    fn apply_settings(&self, value: Settings) -> std::io::Result<(Settings, Settings)> {
+        let previous = self.settings.get();
+        let stored = self.settings.set(value)?;
+        if previous.poll_interval_seconds != stored.poll_interval_seconds
+            || previous.disabled_providers != stored.disabled_providers
+        {
+            self.request_refresh();
+        }
+        Ok((previous, stored))
+    }
 }
 
 /// Build the provider registry.
@@ -257,19 +269,23 @@ pub fn list_providers() -> Vec<ProviderId> {
 #[tauri::command]
 pub fn set_settings(
     app: tauri::AppHandle,
-    settings: tauri::State<'_, Arc<SettingsStore>>,
     state: tauri::State<'_, Arc<UsageState>>,
     value: Settings,
 ) -> Result<Settings, String> {
-    let stored = settings.set(value).map_err(|error| error.to_string())?;
+    let (previous, stored) = state.apply_settings(value).map_err(|error| error.to_string())?;
 
-    if let Some(rail) = tauri::Manager::get_webview_window(&app, crate::RAIL_WINDOW_LABEL) {
-        crate::window::dock(&rail, &stored);
+    if previous.rail_side != stored.rail_side || previous.vertical_offset != stored.vertical_offset {
+        if let Some(rail) = tauri::Manager::get_webview_window(&app, crate::RAIL_WINDOW_LABEL) {
+            crate::window::dock(&rail, &stored);
+        }
     }
 
-    let _ = tauri::Emitter::emit(&app, USAGE_UPDATED_EVENT, state.views());
-    let _ = tauri::Emitter::emit(&app, SETTINGS_UPDATED_EVENT, &stored);
-    state.request_refresh();
+    if previous.disabled_providers != stored.disabled_providers {
+        let _ = tauri::Emitter::emit(&app, USAGE_UPDATED_EVENT, state.views());
+    }
+    if previous != stored {
+        let _ = tauri::Emitter::emit(&app, SETTINGS_UPDATED_EVENT, &stored);
+    }
 
     Ok(stored)
 }
@@ -321,6 +337,48 @@ mod tests {
             store,
             Arc::new(Notify::new()),
         )
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn visual_and_alert_edits_persist_without_waking_the_poll_loop() {
+        let dir = TempDir::new("visual-preferences");
+        let state = state_in(&dir);
+        let notified = state.refresh_now.notified();
+        tokio::pin!(notified);
+        notified.as_mut().enable();
+
+        let edited = Settings {
+            vertical_offset: 200,
+            rail_side: crate::window::placement::RailSide::Left,
+            notifications_enabled: false,
+            notification_thresholds: std::collections::BTreeSet::from([50]),
+            ..Settings::default()
+        };
+        state.apply_settings(edited.clone()).expect("should save preferences");
+        assert_eq!(SettingsStore::open(&dir.0).get(), edited);
+        assert!(tokio::time::timeout(std::time::Duration::from_millis(1), notified).await.is_err());
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn polling_edits_wake_the_loop_and_update_provider_visibility() {
+        let dir = TempDir::new("polling-preferences");
+        let state = state_in(&dir);
+        for edited in [
+            Settings { poll_interval_seconds: 600, ..Settings::default() },
+            Settings {
+                poll_interval_seconds: 600,
+                disabled_providers: std::collections::BTreeSet::from([ProviderId::Codex]),
+                ..Settings::default()
+            },
+        ] {
+            let notified = state.refresh_now.notified();
+            tokio::pin!(notified);
+            notified.as_mut().enable();
+            state.apply_settings(edited).expect("should save preferences");
+            assert!(tokio::time::timeout(std::time::Duration::from_millis(1), notified).await.is_ok());
+        }
+        assert_eq!(state.views().len(), 1);
+        assert_eq!(state.views()[0].provider, ProviderId::Claude);
     }
 
     #[test]
