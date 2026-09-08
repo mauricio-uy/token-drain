@@ -78,6 +78,7 @@ impl ProviderId {
             Self::Claude => "claude",
             Self::Codex => "codex",
             Self::OpencodeGo => "opencode auth login",
+            Self::OpencodeZen => "",
         }
     }
 
@@ -87,12 +88,22 @@ impl ProviderId {
             Self::Claude => "Claude",
             Self::Codex => "Codex",
             Self::OpencodeGo => "OpenCode Go",
+            Self::OpencodeZen => "OpenCode Zen",
         }
     }
 }
 
 /// Work out what to tell the user about a failure.
 pub fn remediation_for(provider: ProviderId, error: &UsageError) -> Remediation {
+    if provider == ProviderId::OpencodeZen {
+        match error {
+            UsageError::MissingCredentials(_) | UsageError::Unauthorized => return Remediation::stuck(
+                "Configure or renew the OpenCode web session in .config/tok-ching/opencode.credentials.json under your home folder. See OpenCode setup in Settings."
+            ),
+            UsageError::Server { status: 403 } => return Remediation::stuck("OpenCode Zen denied billing access. Check the workspace and session permissions."),
+            _ => {}
+        }
+    }
     let command = provider.sign_in_command();
     let name = provider.display_name();
 

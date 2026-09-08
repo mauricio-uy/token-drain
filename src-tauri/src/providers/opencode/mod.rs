@@ -2,6 +2,8 @@
 
 pub mod credentials;
 pub mod go;
+pub mod billing;
+pub mod zen;
 
 use std::time::Duration;
 use reqwest::Client;

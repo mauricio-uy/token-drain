@@ -53,6 +53,7 @@ pub enum ProviderId {
     Claude,
     Codex,
     OpencodeGo,
+    OpencodeZen,
 }
 
 impl ProviderId {
@@ -62,13 +63,14 @@ impl ProviderId {
             Self::Claude => "claude",
             Self::Codex => "codex",
             Self::OpencodeGo => "opencode-go",
+            Self::OpencodeZen => "opencode-zen",
         }
     }
 }
 
 /// A complete usage snapshot for one provider at one moment.
 ///
-/// Both windows are optional independently: a provider may report a session
+/// Quota windows are optional independently: a provider may report a session
 /// window and no weekly window, or neither, depending on the plan. `None` means
 /// "not reported", which the UI renders as absent — never as zero.
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]

@@ -69,6 +69,7 @@
   margin: 0 0 10px;
   color: var(--text-muted);
   font-size: 12px;
+  overflow-wrap: anywhere;
 }
 
 .settings-warning {

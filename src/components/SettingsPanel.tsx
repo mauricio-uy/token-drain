@@ -134,6 +134,12 @@ export function SettingsPanel() {
         )}
       </Section>
 
+      <Section title="OpenCode setup" defaultOpen={false}>
+        <p className="settings-hint">Go uses the API key saved by OpenCode. Connect OpenCode Go with <code>opencode auth login</code>.</p>
+        <p className="settings-hint">Zen billing needs a console web session. Create <code>.config/tok-ching/opencode.credentials.json</code> under your home folder with <code>cookie</code> and <code>workspaceId</code> fields. Use only the <code>auth</code> or <code>__Host-auth</code> cookie from opencode.ai and the workspace ID from its URL.</p>
+        <p className="settings-hint">Keep this file private. Never paste cookies into chat or Git. Tok-Ching only reads it; renew expired cookies there, then use Refresh now from the tray.</p>
+      </Section>
+
       <Section title="Check every">
         <select
           className="settings-select"

@@ -135,22 +135,24 @@ impl UsageState {
 
 /// Build the provider registry.
 ///
-/// Both providers are always registered, whether or not their CLI is installed.
+/// Providers are always registered, whether or not credentials are available.
 /// A missing credentials file is a perfectly good answer — it renders as "not
 /// signed in", which is more useful than the provider silently not existing.
 pub fn build_registry() -> Result<ProviderRegistry, UsageError> {
     let client = build_client()?;
+    let opencode_client = crate::providers::opencode::build_client()?;
 
     Ok(ProviderRegistry::new(vec![
         AnyProvider::Claude(ClaudeProvider::new(client.clone())),
         AnyProvider::Codex(CodexProvider::new(client)),
-        AnyProvider::OpencodeGo(crate::providers::opencode::go::GoProvider::new(crate::providers::opencode::build_client()?)),
+        AnyProvider::OpencodeGo(crate::providers::opencode::go::GoProvider::new(opencode_client.clone())),
+        AnyProvider::OpencodeZen(crate::providers::opencode::zen::ZenProvider::new(opencode_client)),
     ]))
 }
 
 /// Display order of the providers, matching [`build_registry`].
 pub fn provider_order() -> Vec<ProviderId> {
-    vec![ProviderId::Claude, ProviderId::Codex, ProviderId::OpencodeGo]
+    vec![ProviderId::Claude, ProviderId::Codex, ProviderId::OpencodeGo, ProviderId::OpencodeZen]
 }
 
 /// Assemble the state and start the polling loop.
