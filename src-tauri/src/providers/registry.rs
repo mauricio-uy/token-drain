@@ -204,6 +204,8 @@ pub(crate) mod tests {
                     provider: self.id,
                     session: UsageWindow::new(used_percent, SESSION_WINDOW_MINUTES, None),
                     weekly: None,
+                    monthly: None,
+                    billing: None,
                     plan: None,
                     fetched_at: 0,
                 }),

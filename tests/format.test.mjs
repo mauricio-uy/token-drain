@@ -2,6 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { formatReset, formatAge } from "../src/lib/format.ts";
 
+test("distant resets name the full calendar date", () => {
+  const now = new Date(2026, 8, 8, 12).getTime();
+  const reset = new Date(2026, 9, 8, 16, 5).getTime();
+  assert.equal(formatReset(reset, now), "Resets 8 Oct 2026, 16:05");
+  assert.equal(formatReset(Number.NaN, now), null);
+});
+
 test("reset times use English weekdays and the local clock", () => {
   const now = new Date(2026, 8, 8, 12, 0).getTime();
   const tomorrow = new Date(2026, 8, 9, 16, 5).getTime();

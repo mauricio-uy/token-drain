@@ -65,6 +65,8 @@ pub fn map_response(payload: &ClaudeUsageResponse, fetched_at: i64) -> ProviderU
         provider: ProviderId::Claude,
         session: map_window(payload.five_hour.as_ref(), SESSION_WINDOW_MINUTES),
         weekly: map_window(payload.seven_day.as_ref(), WEEKLY_WINDOW_MINUTES),
+        monthly: None,
+        billing: None,
         // This endpoint does not state a plan name; Codex does.
         plan: None,
         fetched_at,

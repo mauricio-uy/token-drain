@@ -55,6 +55,7 @@ fn same_period(left: Option<i64>, right: Option<i64>) -> bool {
 pub enum WindowKind {
     Session,
     Weekly,
+    Monthly,
 }
 
 impl WindowKind {
@@ -62,6 +63,7 @@ impl WindowKind {
         match self {
             Self::Session => "session",
             Self::Weekly => "weekly",
+            Self::Monthly => "monthly",
         }
     }
 }
@@ -215,6 +217,7 @@ impl ThresholdTracker {
         let windows = [
             (WindowKind::Session, usage.session.as_ref()),
             (WindowKind::Weekly, usage.weekly.as_ref()),
+            (WindowKind::Monthly, usage.monthly.as_ref()),
         ];
 
         let before = self.fingerprint();
@@ -308,6 +311,17 @@ impl ThresholdTracker {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn monthly_alerts_are_independent_and_deduplicated() {
+        let mut snapshot = usage(10.0, Some(1000));
+        snapshot.monthly = UsageWindow::new(95.0, 43_200, Some(2_000_000));
+        let mut tracker = ThresholdTracker::new();
+        let alerts = tracker.observe(&snapshot, &[80]);
+        assert_eq!(alerts.len(), 1);
+        assert_eq!(alerts[0].window, WindowKind::Monthly);
+        assert!(tracker.observe(&snapshot, &[80]).is_empty());
+    }
     use crate::providers::usage::{SESSION_WINDOW_MINUTES, WEEKLY_WINDOW_MINUTES};
 
     const THRESHOLDS: [u8; 2] = [80, 95];
@@ -318,6 +332,8 @@ mod tests {
             provider: ProviderId::Claude,
             session: UsageWindow::new(session_percent, SESSION_WINDOW_MINUTES, resets_at),
             weekly: None,
+            monthly: None,
+            billing: None,
             plan: None,
             fetched_at: 0,
         }

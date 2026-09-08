@@ -80,6 +80,8 @@ pub fn map_response(
         provider: ProviderId::Codex,
         session: classified.session,
         weekly: classified.weekly,
+        monthly: None,
+        billing: None,
         plan: Some(plan),
         fetched_at,
     })

@@ -23,6 +23,13 @@ export type ProviderUsage = {
   provider: string;
   session: UsageWindow | null;
   weekly: UsageWindow | null;
+  monthly?: UsageWindow | null;
+  billing?: {
+    balanceUsd: number;
+    monthlySpendUsd: number | null;
+    monthlyLimitUsd: number | null;
+    spendUpdatedAt: number | null;
+  } | null;
   plan: string | null;
   fetchedAt: number;
 };

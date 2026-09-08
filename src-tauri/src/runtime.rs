@@ -318,6 +318,8 @@ mod tests {
             provider,
             session: UsageWindow::new(used_percent, SESSION_WINDOW_MINUTES, Some(1_788_580_800_000)),
             weekly: None,
+            monthly: None,
+            billing: None,
             plan: Some("some_plan".to_owned()),
             fetched_at: 1_000,
         }

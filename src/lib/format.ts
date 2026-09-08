@@ -7,6 +7,14 @@ const HOUR = 60 * MINUTE;
 // omitting timeZone deliberately keeps the user's local clock.
 const RESET_TIME = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit" });
 const RESET_WEEKDAY = new Intl.DateTimeFormat("en-GB", { weekday: "short" });
+const RESET_DATE = new Intl.DateTimeFormat("en-GB", {
+  day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
+});
+
+export function formatResetDate(resetsAt: number | null): string | null {
+  return resetsAt !== null && Number.isFinite(resetsAt)
+    ? RESET_DATE.format(new Date(resetsAt)) : null;
+}
 
 /**
  * Render a reset time the way a person reads a countdown.
@@ -20,7 +28,7 @@ const RESET_WEEKDAY = new Intl.DateTimeFormat("en-GB", { weekday: "short" });
  * persisted at fetch time would still say "in 51 min" an hour later.
  */
 export function formatReset(resetsAt: number | null, now: number): string | null {
-  if (resetsAt === null) return null;
+  if (resetsAt === null || !Number.isFinite(resetsAt)) return null;
 
   const remaining = resetsAt - now;
 
@@ -32,6 +40,7 @@ export function formatReset(resetsAt: number | null, now: number): string | null
   }
 
   const target = new Date(resetsAt);
+  if (remaining >= 7 * 24 * HOUR) return `Resets ${RESET_DATE.format(target)}`;
   const time = RESET_TIME.format(target);
 
   const sameDay = new Date(now).toDateString() === target.toDateString();
