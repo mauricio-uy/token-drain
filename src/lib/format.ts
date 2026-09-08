@@ -3,6 +3,11 @@ import { useEffect, useState } from "react";
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 
+// Reuse locale data across renders. UI copy is English even when Windows is not;
+// omitting timeZone deliberately keeps the user's local clock.
+const RESET_TIME = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit" });
+const RESET_WEEKDAY = new Intl.DateTimeFormat("en-GB", { weekday: "short" });
+
 /**
  * Render a reset time the way a person reads a countdown.
  *
@@ -27,15 +32,12 @@ export function formatReset(resetsAt: number | null, now: number): string | null
   }
 
   const target = new Date(resetsAt);
-  const time = target.toLocaleTimeString(undefined, {
-    hour: "numeric",
-    minute: "2-digit",
-  });
+  const time = RESET_TIME.format(target);
 
   const sameDay = new Date(now).toDateString() === target.toDateString();
   if (sameDay) return `Resets ${time}`;
 
-  const weekday = target.toLocaleDateString(undefined, { weekday: "short" });
+  const weekday = RESET_WEEKDAY.format(target);
   return `Resets ${weekday} ${time}`;
 }
 
