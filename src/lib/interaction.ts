@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useEffect, type RefObject } from "react";
+import { useLayoutEffect, type RefObject } from "react";
 
 /**
  * A rectangle in window-relative logical pixels.
@@ -39,42 +39,58 @@ function measure(element: Element): LogicalRect {
 /**
  * Keep the backend's idea of the interactive area in step with what is drawn.
  *
- * Re-measures whenever an element resizes or the window does. Elements that are
- * absent — a hover card that is not open — are skipped, so closing the card
- * hands its area straight back to the desktop.
+ * Observe transforms as well as size: a moving card does not trigger a
+ * ResizeObserver. Reports are batched once per frame and unchanged geometry
+ * never crosses IPC. Inert cards hand their area straight back to the desktop.
  */
 export function useInteractiveRegions(refs: RefObject<Element | null>[]): void {
-  useEffect(() => {
-    let cancelled = false;
+  useLayoutEffect(() => {
+    let frame = 0;
+    let previous = "";
 
     const report = () => {
-      if (cancelled) return;
-
+      frame = 0;
       const regions = refs
         .map((ref) => ref.current)
-        .filter((element): element is Element => element !== null)
-        .map(measure);
+        .filter((element): element is Element =>
+          element !== null && !element.closest('[inert], [aria-hidden="true"]'))
+        .map(measure)
+        .filter((rect) => rect.width > 0 && rect.height > 0);
 
-      void setInteractiveRegions(regions);
+      const signature = JSON.stringify(regions);
+      if (signature === previous) return;
+      previous = signature;
+      void setInteractiveRegions(regions).catch(() => {
+        // Allow the next geometry change to retry a failed report.
+        previous = "";
+      });
     };
 
+    const schedule = () => {
+      if (!frame) frame = requestAnimationFrame(report);
+    };
     report();
 
-    const observer = new ResizeObserver(report);
+    const observer = new ResizeObserver(schedule);
+    const mutations = new MutationObserver(schedule);
     for (const ref of refs) {
-      if (ref.current) observer.observe(ref.current);
+      if (!ref.current) continue;
+      observer.observe(ref.current);
+      mutations.observe(ref.current, {
+        attributes: true,
+        attributeFilter: ["style", "inert", "aria-hidden", "class"],
+      });
     }
-    window.addEventListener("resize", report);
+    window.addEventListener("resize", schedule);
 
     return () => {
-      cancelled = true;
+      cancelAnimationFrame(frame);
       observer.disconnect();
-      window.removeEventListener("resize", report);
+      mutations.disconnect();
+      window.removeEventListener("resize", schedule);
       // Hand every region back on unmount, so a closing window cannot leave the
       // desktop with a dead zone on it.
-      void setInteractiveRegions([]);
+      void setInteractiveRegions([]).catch(() => {});
     };
-    // The ref objects are stable; their contents are watched by the observer.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [refs]);
 }

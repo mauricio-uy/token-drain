@@ -81,6 +81,14 @@
   transform-origin: right center;
 }
 
+/* Keep the pointer in the same surface while it crosses the visual gap. */
+.rail-card-bridge {
+  position: absolute;
+  left: 100%;
+  top: 0;
+  height: 100%;
+}
+
 /* Dev-only overlay proving the card element is never remounted. */
 .rail-debug {
   position: absolute;

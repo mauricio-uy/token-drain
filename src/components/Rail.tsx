@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import "./Rail.css";
 import { ProviderBadge } from "./ProviderBadge";
@@ -43,6 +43,11 @@ function CardMountProbe() {
   return <span className="rail-debug">card mounts: {mount}</span>;
 }
 
+/** Only the open card needs a clock; the idle rail has no countdown to update. */
+function LiveUsageCard({ view }: { view: ProviderView }) {
+  return <UsageCard view={view} now={useNow()} />;
+}
+
 /**
  * The rail, with a card that follows the pointer between badges.
  *
@@ -56,11 +61,12 @@ export function Rail({ views }: { views: ProviderView[] }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const railRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
+  const bridgeRef = useRef<HTMLSpanElement>(null);
+  const interactiveRefs = useMemo(() => [railRef, cardRef, bridgeRef], []);
   const badgeRefs = useRef(new Map<string, HTMLElement>());
 
   const [active, setActive] = useState<string | null>(null);
   const [placement, setPlacement] = useState<Placement>({ top: 0, tailOffset: 0 });
-  const now = useNow();
 
   const activeView = views.find((view) => view.provider === active) ?? null;
 
@@ -89,7 +95,7 @@ export function Rail({ views }: { views: ProviderView[] }) {
     setPlacement({ top, tailOffset: badgeCentre - top });
   }, [activeView, views]);
 
-  useInteractiveRegions([railRef, cardRef]);
+  useInteractiveRegions(interactiveRefs);
 
   return (
     <div ref={rootRef} className="rail-root" onMouseLeave={() => setActive(null)}>
@@ -117,12 +123,14 @@ export function Rail({ views }: { views: ProviderView[] }) {
               exit={{ opacity: 0 }}
               transition={CROSSFADE}
             >
-              <UsageCard view={activeView} now={now} />
+              <LiveUsageCard view={activeView} />
             </motion.div>
           )}
         </AnimatePresence>
 
         {SHOW_MOUNT_PROBE && <CardMountProbe />}
+
+        <span ref={bridgeRef} className="rail-card-bridge" style={{ width: CARD_GAP }} />
 
         <motion.span
           className="card-tail"
