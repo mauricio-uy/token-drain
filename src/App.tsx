@@ -3,6 +3,7 @@ import { Rail } from "./components/Rail";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { currentSurface } from "./lib/surface";
 import { useUsage } from "./lib/usage";
+import { useRailSide } from "./lib/settings";
 
 /**
  * The rail. Kept separate from `App` so the usage subscription only runs in the
@@ -10,7 +11,7 @@ import { useUsage } from "./lib/usage";
  * in the settings window too.
  */
 function RailSurface() {
-  return <Rail views={useUsage()} />;
+  return <Rail views={useUsage()} side={useRailSide()} />;
 }
 
 function App() {

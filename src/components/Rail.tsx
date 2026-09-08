@@ -6,9 +6,8 @@ import { UsageCard } from "./UsageCard";
 import { useNow } from "../lib/format";
 import { useInteractiveRegions } from "../lib/interaction";
 import type { ProviderView } from "../lib/usage";
+import type { RailSide } from "../lib/settings";
 
-/** Gap between the card's right edge and the rail. */
-const CARD_GAP = 14;
 /** Keep the card this far from the window edges. */
 const EDGE_MARGIN = 8;
 
@@ -57,7 +56,7 @@ function LiveUsageCard({ view }: { view: ProviderView }) {
  * one down and building another. Only its contents are replaced, and those
  * cross-fade.
  */
-export function Rail({ views }: { views: ProviderView[] }) {
+export function Rail({ views, side = "right" }: { views: ProviderView[]; side?: RailSide }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const railRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -95,14 +94,13 @@ export function Rail({ views }: { views: ProviderView[] }) {
     setPlacement({ top, tailOffset: badgeCentre - top });
   }, [activeView, views]);
 
-  useInteractiveRegions(interactiveRefs);
+  useInteractiveRegions(interactiveRefs, side);
 
   return (
-    <div ref={rootRef} className="rail-root" onMouseLeave={() => setActive(null)}>
+    <div ref={rootRef} className="rail-root" data-side={side} onMouseLeave={() => setActive(null)}>
       <motion.div
         ref={cardRef}
         className="rail-card card-surface"
-        style={{ right: `calc(var(--rail-width) + ${CARD_GAP}px)` }}
         animate={{
           y: placement.top,
           opacity: activeView ? 1 : 0,
@@ -130,7 +128,7 @@ export function Rail({ views }: { views: ProviderView[] }) {
 
         {SHOW_MOUNT_PROBE && <CardMountProbe />}
 
-        <span ref={bridgeRef} className="rail-card-bridge" style={{ width: CARD_GAP }} />
+        <span ref={bridgeRef} className="rail-card-bridge" />
 
         <motion.span
           className="card-tail"

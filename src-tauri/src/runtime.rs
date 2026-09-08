@@ -30,6 +30,9 @@ use crate::view::{build_view, ProviderView};
 /// The event emitted whenever a poll produces new results.
 pub const USAGE_UPDATED_EVENT: &str = "usage-updated";
 
+/// Keeps other windows in step with preferences changed in the settings window.
+pub const SETTINGS_UPDATED_EVENT: &str = "settings-updated";
+
 /// The settings, seen as the polling loop needs to see them.
 ///
 /// The adapter lives here rather than in the settings module so that neither
@@ -265,6 +268,7 @@ pub fn set_settings(
     }
 
     let _ = tauri::Emitter::emit(&app, USAGE_UPDATED_EVENT, state.views());
+    let _ = tauri::Emitter::emit(&app, SETTINGS_UPDATED_EVENT, &stored);
     state.request_refresh();
 
     Ok(stored)

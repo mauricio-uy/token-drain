@@ -1,6 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { latestWrite } from "./latestWrite";
+import { liveSnapshot } from "./liveSnapshot";
 
 /** Mirrors `RailSide` in `src-tauri/src/window/placement.rs`. */
 export type RailSide = "right" | "left";
@@ -23,6 +25,17 @@ export type Settings = {
 
 export async function getSettings(): Promise<Settings> {
   return invoke<Settings>("get_settings");
+}
+
+/** Follow docking preferences in the rail without loading the settings form. */
+export function useRailSide(): RailSide {
+  const [side, setSide] = useState<RailSide>("right");
+  useEffect(() => liveSnapshot(
+    (receive) => listen<Settings>("settings-updated", (event) => receive(event.payload)),
+    getSettings,
+    (settings) => setSide(settings.railSide),
+  ), []);
+  return side;
 }
 
 /**

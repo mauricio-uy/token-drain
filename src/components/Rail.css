@@ -1,4 +1,5 @@
 .rail-root {
+  --card-gap: 14px;
   width: 100%;
   height: 100%;
   position: relative;
@@ -77,6 +78,7 @@
  */
 .rail-card {
   position: absolute;
+  right: calc(var(--rail-width) + var(--card-gap));
   top: 0;
   transform-origin: right center;
 }
@@ -87,6 +89,38 @@
   left: 100%;
   top: 0;
   height: 100%;
+  width: var(--card-gap);
+}
+
+.rail-root[data-side="left"] .rail {
+  right: auto;
+  left: 0;
+  border-radius: 0 var(--rail-radius) var(--rail-radius) 0;
+}
+
+.rail-root[data-side="left"] .rail::before,
+.rail-root[data-side="left"] .rail::after {
+  right: auto;
+  left: 0;
+  transform: scaleX(-1);
+}
+
+.rail-root[data-side="left"] .rail-card {
+  right: auto;
+  left: calc(var(--rail-width) + var(--card-gap));
+  transform-origin: left center;
+}
+
+.rail-root[data-side="left"] .card-tail {
+  right: auto;
+  left: -9px;
+  border-left: 0;
+  border-right: 10px solid var(--surface-raised);
+}
+
+.rail-root[data-side="left"] .rail-card-bridge {
+  left: auto;
+  right: 100%;
 }
 
 /* Dev-only overlay proving the card element is never remounted. */

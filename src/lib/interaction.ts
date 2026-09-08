@@ -43,7 +43,7 @@ function measure(element: Element): LogicalRect {
  * ResizeObserver. Reports are batched once per frame and unchanged geometry
  * never crosses IPC. Inert cards hand their area straight back to the desktop.
  */
-export function useInteractiveRegions(refs: RefObject<Element | null>[]): void {
+export function useInteractiveRegions(refs: RefObject<Element | null>[], layoutKey?: unknown): void {
   useLayoutEffect(() => {
     let frame = 0;
     let previous = "";
@@ -92,5 +92,5 @@ export function useInteractiveRegions(refs: RefObject<Element | null>[]): void {
       // desktop with a dead zone on it.
       void setInteractiveRegions([]).catch(() => {});
     };
-  }, [refs]);
+  }, [refs, layoutKey]);
 }
