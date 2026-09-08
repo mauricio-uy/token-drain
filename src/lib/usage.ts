@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useEffect, useState } from "react";
+import { liveSnapshot } from "./liveSnapshot";
 
 /** Mirrors `BadgeState` in `src-tauri/src/view.rs`. */
 export type BadgeState =
@@ -67,22 +68,11 @@ export async function refreshNow(): Promise<void> {
 export function useUsage(): ProviderView[] {
   const [views, setViews] = useState<ProviderView[]>([]);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    void getUsageSnapshot().then((snapshot) => {
-      if (!cancelled) setViews(snapshot);
-    });
-
-    const unlisten = listen<ProviderView[]>(USAGE_UPDATED_EVENT, (event) => {
-      if (!cancelled) setViews(event.payload);
-    });
-
-    return () => {
-      cancelled = true;
-      void unlisten.then((stop) => stop());
-    };
-  }, []);
+  useEffect(() => liveSnapshot(
+    (receive) => listen<ProviderView[]>(USAGE_UPDATED_EVENT, (event) => receive(event.payload)),
+    getUsageSnapshot,
+    setViews,
+  ), []);
 
   return views;
 }
