@@ -46,7 +46,7 @@ function WindowRow({
 /**
  * The contents of the hover card: what the badge's ring cannot say on its own.
  *
- * The ring carries one number. This carries both windows, what each is called,
+ * The rings carry percentages. This carries the windows, what each is called,
  * and when each comes back — which is the part that actually decides whether to
  * keep working or stop.
  *
@@ -93,9 +93,9 @@ export function UsageCard({ view, now }: { view: ProviderView; now: number }) {
       {staleAge && <p className="card-stale">Updated {staleAge}</p>}
 
       {usage?.session && (
-        <WindowRow label="Current session" window={usage.session} now={now} />
+        <WindowRow label="5-hour usage" window={usage.session} now={now} />
       )}
-      {usage?.weekly && <WindowRow label="All models" window={usage.weekly} now={now} />}
+      {usage?.weekly && <WindowRow label="7-day usage" window={usage.weekly} now={now} />}
 
       {!usage?.session && !usage?.weekly && !view.remediation && (
         <p className="card-note">
