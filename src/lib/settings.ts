@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { latestWrite } from "./latestWrite";
 
 /** Mirrors `RailSide` in `src-tauri/src/window/placement.rs`. */
 export type RailSide = "right" | "left";
@@ -81,6 +82,20 @@ export function useSettings(): SettingsForm {
   const [providers, setProviders] = useState<string[]>([]);
   const [launchAtLogin, setLaunch] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const current = useRef<Settings | null>(null);
+  const [queueSave] = useState(() => latestWrite(saveSettings, (stored) => {
+    current.current = stored;
+    setSettings(stored);
+    setError(null);
+  }, (cause) => setError(`Could not save settings: ${String(cause)}`)));
+  const [queueLaunch] = useState(() => latestWrite(
+    setLaunchAtLogin,
+    (actual) => {
+      setLaunch(actual);
+      setError(null);
+    },
+    (cause) => setError(`Could not change launch at login: ${String(cause)}`),
+  ));
 
   useEffect(() => {
     let cancelled = false;
@@ -88,9 +103,13 @@ export function useSettings(): SettingsForm {
     void Promise.all([getSettings(), listProviders(), getLaunchAtLogin()]).then(
       ([loaded, known, launch]) => {
         if (cancelled) return;
+        current.current = loaded;
         setSettings(loaded);
         setProviders(known);
         setLaunch(launch);
+      },
+      (cause: unknown) => {
+        if (!cancelled) setError(`Could not load settings: ${String(cause)}`);
       },
     );
 
@@ -102,42 +121,20 @@ export function useSettings(): SettingsForm {
   const updateLaunchAtLogin = useCallback((enabled: boolean) => {
     setLaunch(enabled);
 
-    void setLaunchAtLogin(enabled)
-      .then((actual) => {
-        setError(null);
-        // Corrected from what the OS reports afterwards, so a write that
-        // silently failed snaps the checkbox back rather than lying about it.
-        setLaunch(actual);
-      })
-      .catch((cause: unknown) => {
-        setError(String(cause));
-        void getLaunchAtLogin().then(setLaunch);
-      });
-  }, []);
+    queueLaunch(enabled);
+  }, [queueLaunch]);
 
   const update = useCallback(
     (change: Partial<Settings>) => {
-      setSettings((current) => {
-        if (!current) return current;
-
-        const next = { ...current, ...change };
-
-        void saveSettings(next)
-          .then((stored) => {
-            setError(null);
-            setSettings(stored);
-          })
-          .catch((cause: unknown) => {
-            // Say so rather than silently reverting: the setting is live in
-            // this session either way, and a control that snaps back with no
-            // explanation is worse than one that admits it did not persist.
-            setError(String(cause));
-          });
-
-        return next;
-      });
+      if (!current.current) return;
+      const next = { ...current.current, ...change };
+      current.current = next;
+      setSettings(next);
+      // Side effects belong in the event handler, never in a React updater:
+      // Strict Mode may replay updaters to check that they are pure.
+      queueSave(next);
     },
-    [],
+    [queueSave],
   );
 
   return { settings, providers, launchAtLogin, error, update, updateLaunchAtLogin };

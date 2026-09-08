@@ -68,7 +68,11 @@ export function SettingsPanel() {
   // would flash a configuration the user does not have, and any control touched
   // in that moment would save the wrong thing.
   if (!settings) {
-    return <div className="settings settings--loading">Loading…</div>;
+    return (
+      <div className="settings settings--loading">
+        {error ? <p className="settings-error" role="alert">{error}</p> : "Loading…"}
+      </div>
+    );
   }
 
   const disabled = new Set(settings.disabledProviders);
@@ -85,7 +89,7 @@ export function SettingsPanel() {
     <div className="settings">
       {error && (
         <p className="settings-error" role="alert">
-          Could not save: {error}
+          {error}
         </p>
       )}
 
