@@ -75,6 +75,7 @@ export function ProviderBadge({
   const session = view.usage?.session ?? null;
   const percent = session?.usedPercent ?? null;
   const weeklyPercent = view.usage?.weekly?.usedPercent ?? null;
+  const monthlyPercent = view.usage?.monthly?.usedPercent ?? null;
   const description = view.usage
     ? `5h ${percent === null ? "not reported" : `${Math.round(percent)}% used`}, 7d ${weeklyPercent === null ? "not reported" : `${Math.round(weeklyPercent)}% used`}`
     : view.state;
@@ -87,7 +88,7 @@ export function ProviderBadge({
       onFocus={() => onEnter(view.provider)}
       aria-expanded={cardId ? active : undefined}
       aria-controls={cardId}
-      aria-label={`${view.provider}: ${description}${view.state === "stale" ? ", stale" : ""}`}
+      aria-label={`${view.provider}: ${description}${monthlyPercent !== null ? `, monthly ${Math.round(monthlyPercent)}% used` : ""}${view.state === "stale" ? ", stale" : ""}`}
     >
       <span className="badge-ring">
         <svg aria-hidden="true" width={RING_SIZE} height={RING_SIZE} viewBox={`0 0 ${RING_SIZE} ${RING_SIZE}`}>
@@ -110,6 +111,7 @@ export function ProviderBadge({
           </span>
         </span>
       ) : <span className="badge-label badge-status">{labelFor(view.state)}</span>}
+      {view.provider === "opencode-go" && <span className="badge-window-label">GO{monthlyPercent !== null ? ` · 1m ${percentLabel(monthlyPercent)}` : ""}</span>}
     </button>
   );
 }

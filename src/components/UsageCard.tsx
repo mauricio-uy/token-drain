@@ -1,12 +1,14 @@
 import "./UsageCard.css";
 import { ProviderLogo } from "./ProviderLogo";
 import { severityOf } from "./ProviderBadge";
-import { formatAge, formatReset } from "../lib/format";
+import { formatAge, formatReset, formatResetDate } from "../lib/format";
 import type { ProviderView, UsageWindow } from "../lib/usage";
 
 const PROVIDER_TITLES: Record<string, string> = {
   claude: "Claude Usage",
   codex: "Codex Usage",
+  "opencode-go": "OpenCode Go Usage",
+  "opencode-zen": "OpenCode Zen Billing",
 };
 
 function titleFor(provider: string): string {
@@ -30,7 +32,7 @@ function WindowRow({
     <div className="card-row">
       <div className="card-row-head">
         <span className="card-row-label">{label}</span>
-        {reset && <span className="card-row-reset">{reset}</span>}
+        {reset && <time className="card-row-reset" dateTime={new Date(window.resetsAt!).toISOString()} title={formatResetDate(window.resetsAt) ?? undefined}>{reset}</time>}
       </div>
       <div className="card-bar">
         <div
@@ -96,8 +98,9 @@ export function UsageCard({ view, now }: { view: ProviderView; now: number }) {
         <WindowRow label="5-hour usage" window={usage.session} now={now} />
       )}
       {usage?.weekly && <WindowRow label="7-day usage" window={usage.weekly} now={now} />}
+      {usage?.monthly && <WindowRow label="Monthly usage" window={usage.monthly} now={now} />}
 
-      {!usage?.session && !usage?.weekly && !view.remediation && (
+      {!usage?.session && !usage?.weekly && !usage?.monthly && !view.remediation && (
         <p className="card-note">
           {/* Nothing has been fetched yet, which is not the same as a provider
               that answered and reported no limits. Saying the latter would be a

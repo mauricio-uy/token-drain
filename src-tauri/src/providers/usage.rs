@@ -52,6 +52,7 @@ pub struct UsageWindow {
 pub enum ProviderId {
     Claude,
     Codex,
+    OpencodeGo,
 }
 
 impl ProviderId {
@@ -60,6 +61,7 @@ impl ProviderId {
         match self {
             Self::Claude => "claude",
             Self::Codex => "codex",
+            Self::OpencodeGo => "opencode-go",
         }
     }
 }

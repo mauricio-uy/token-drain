@@ -77,6 +77,7 @@ impl ProviderId {
         match self {
             Self::Claude => "claude",
             Self::Codex => "codex",
+            Self::OpencodeGo => "opencode auth login",
         }
     }
 
@@ -85,6 +86,7 @@ impl ProviderId {
         match self {
             Self::Claude => "Claude",
             Self::Codex => "Codex",
+            Self::OpencodeGo => "OpenCode Go",
         }
     }
 }
@@ -95,6 +97,8 @@ pub fn remediation_for(provider: ProviderId, error: &UsageError) -> Remediation 
     let name = provider.display_name();
 
     match error {
+        UsageError::Server { status: 403 } if provider == ProviderId::OpencodeGo =>
+            Remediation::stuck("OpenCode Go requires an active subscription for this API key's user and workspace."),
         UsageError::Unauthorized => Remediation::user_action(
             format!("{name} rejected the saved login. Sign in again."),
             command,

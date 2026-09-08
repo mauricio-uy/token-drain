@@ -144,12 +144,13 @@ pub fn build_registry() -> Result<ProviderRegistry, UsageError> {
     Ok(ProviderRegistry::new(vec![
         AnyProvider::Claude(ClaudeProvider::new(client.clone())),
         AnyProvider::Codex(CodexProvider::new(client)),
+        AnyProvider::OpencodeGo(crate::providers::opencode::go::GoProvider::new(crate::providers::opencode::build_client()?)),
     ]))
 }
 
 /// Display order of the providers, matching [`build_registry`].
 pub fn provider_order() -> Vec<ProviderId> {
-    vec![ProviderId::Claude, ProviderId::Codex]
+    vec![ProviderId::Claude, ProviderId::Codex, ProviderId::OpencodeGo]
 }
 
 /// Assemble the state and start the polling loop.
@@ -379,7 +380,7 @@ mod tests {
             state.apply_settings(edited).expect("should save preferences");
             assert!(tokio::time::timeout(std::time::Duration::from_millis(1), notified).await.is_ok());
         }
-        assert_eq!(state.views().len(), 1);
+        assert_eq!(state.views().len(), provider_order().len() - 1);
         assert_eq!(state.views()[0].provider, ProviderId::Claude);
     }
 
@@ -390,7 +391,7 @@ mod tests {
 
         let views = state.views();
 
-        assert_eq!(views.len(), 2);
+        assert_eq!(views.len(), provider_order().len());
         assert!(views.iter().all(|view| view.state == BadgeState::Pending));
     }
 
@@ -495,7 +496,7 @@ mod tests {
 
         let providers: Vec<_> = state.views().iter().map(|view| view.provider).collect();
 
-        assert_eq!(providers, vec![ProviderId::Claude]);
+        assert_eq!(providers, provider_order().into_iter().filter(|id| *id != ProviderId::Codex).collect::<Vec<_>>());
     }
 
     #[test]
@@ -518,11 +519,11 @@ mod tests {
             Arc::new(Notify::new()),
         );
 
-        assert_eq!(state.views().len(), 1);
+        assert_eq!(state.views().len(), provider_order().len() - 1);
 
         store.set(Settings::default()).expect("should persist");
 
-        assert_eq!(state.views().len(), 2);
+        assert_eq!(state.views().len(), provider_order().len());
     }
 
     #[test]

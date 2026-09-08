@@ -1,6 +1,7 @@
 import "./ProviderLogo.css";
 import claudeMark from "../assets/logos/claude.svg?raw";
 import codexMark from "../assets/logos/codex.svg?raw";
+import opencodeMark from "../assets/logos/opencode.svg?raw";
 
 /**
  * Provider marks.
@@ -60,6 +61,9 @@ export function ProviderLogo({ provider, size }: { provider: string; size?: numb
       return <Mark markup={claudeMark} size={size} />;
     case "codex":
       return <Mark markup={codexMark} size={size} />;
+    case "opencode-go":
+    case "opencode-zen":
+      return <Mark markup={opencodeMark} size={size} />;
     default:
       return <GenericMark size={size} />;
   }

@@ -96,6 +96,7 @@ fn display_name(provider: ProviderId) -> &'static str {
     match provider {
         ProviderId::Claude => "Claude",
         ProviderId::Codex => "Codex",
+        ProviderId::OpencodeGo => "OpenCode Go",
     }
 }
 

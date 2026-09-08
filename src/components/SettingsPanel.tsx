@@ -36,6 +36,8 @@ const OFFERED_THRESHOLDS = [50, 80, 90, 95];
 const PROVIDER_NAMES: Record<string, string> = {
   claude: "Claude",
   codex: "Codex",
+  "opencode-go": "OpenCode Go",
+  "opencode-zen": "OpenCode Zen",
 };
 
 /** Title case as a fallback, so a provider added later still reads properly. */

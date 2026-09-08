@@ -41,6 +41,7 @@ pub struct ProviderFetch {
 pub enum AnyProvider {
     Claude(ClaudeProvider),
     Codex(CodexProvider),
+    OpencodeGo(crate::providers::opencode::go::GoProvider),
     #[cfg(test)]
     Stub(tests::StubProvider),
 }
@@ -50,6 +51,7 @@ impl UsageProvider for AnyProvider {
         match self {
             Self::Claude(provider) => provider.id(),
             Self::Codex(provider) => provider.id(),
+            Self::OpencodeGo(provider) => provider.id(),
             #[cfg(test)]
             Self::Stub(provider) => provider.id(),
         }
@@ -59,6 +61,7 @@ impl UsageProvider for AnyProvider {
         match self {
             Self::Claude(provider) => provider.fetch().await,
             Self::Codex(provider) => provider.fetch().await,
+            Self::OpencodeGo(provider) => provider.fetch().await,
             #[cfg(test)]
             Self::Stub(provider) => provider.fetch().await,
         }

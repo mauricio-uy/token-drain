@@ -6,6 +6,7 @@ pub mod codex;
 pub mod credentials;
 pub mod error;
 pub mod http;
+pub mod opencode;
 pub mod provider;
 pub mod refresh;
 pub mod remediation;
