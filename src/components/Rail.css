@@ -10,21 +10,77 @@
  * The rail itself: flush against the window's right edge, which the shell has
  * already docked to the screen's work area edge.
  */
-.rail {
+.rail-dock {
   position: absolute;
   right: 0;
-  top: 50%;
-  transform: translateY(-50%);
-
+  top: calc(50% - 22px);
   width: var(--rail-width);
+}
+
+.rail {
+  position: relative;
+  width: 100%;
   padding: var(--rail-padding) 0;
   background: var(--surface);
   border-radius: var(--rail-radius) 0 0 var(--rail-radius);
 
+}
+
+.rail-badges {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--rail-gap);
+  max-height: calc(100vh - 140px);
+  overflow-y: auto;
+  scrollbar-width: none;
+  padding: 4px 0;
+}
+
+.rail-trigger {
+  position: absolute;
+  right: 0;
+  top: calc(50% - 22px);
+  transform: translateY(-50%);
+  width: 10px;
+  height: 128px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.rail-trigger::before {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 20px;
+  width: 4px;
+  height: 88px;
+  border-radius: 999px 0 0 999px;
+  background: linear-gradient(#666678, #d4d4df 48%, #666678);
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 25%), -2px 0 9px rgb(0 0 0 / 30%);
+}
+
+.rail-trigger[aria-hidden="true"] {
+  opacity: 0;
+}
+
+.rail-trigger:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: -2px;
+}
+
+.rail-root[data-side="left"] .rail-dock,
+.rail-root[data-side="left"] .rail-trigger {
+  right: auto;
+  left: 0;
+}
+
+.rail-root[data-side="left"] .rail-trigger::before {
+  right: auto;
+  left: 0;
+  border-radius: 0 999px 999px 0;
 }
 
 /*

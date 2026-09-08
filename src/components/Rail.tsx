@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import "./Rail.css";
 import { ProviderBadge } from "./ProviderBadge";
@@ -58,17 +58,42 @@ function LiveUsageCard({ view }: { view: ProviderView }) {
  */
 export function Rail({ views, side = "right" }: { views: ProviderView[]; side?: RailSide }) {
   const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const dockRef = useRef<HTMLDivElement>(null);
   const railRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const bridgeRef = useRef<HTMLSpanElement>(null);
-  const interactiveRefs = useMemo(() => [railRef, cardRef, bridgeRef], []);
+  const interactiveRefs = useMemo(() => [triggerRef, railRef, cardRef, bridgeRef], []);
+  const movingRefs = useMemo(() => [dockRef], []);
   const badgeRefs = useRef(new Map<string, HTMLElement>());
 
   const [active, setActive] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [placement, setPlacement] = useState<Placement>({ top: 0, tailOffset: 0 });
   const reduceMotion = useReducedMotion();
 
-  const activeView = views.find((view) => view.provider === active) ?? null;
+  const activeView = expanded ? views.find((view) => view.provider === active) ?? null : null;
+
+  const cancelClose = () => {
+    if (closeTimer.current !== null) clearTimeout(closeTimer.current);
+    closeTimer.current = null;
+  };
+  const reveal = () => {
+    cancelClose();
+    setExpanded(true);
+  };
+  const collapse = () => {
+    cancelClose();
+    setActive(null);
+    setExpanded(false);
+  };
+  const scheduleClose = () => {
+    if (closeTimer.current === null) closeTimer.current = setTimeout(collapse, 180);
+  };
+  useEffect(() => () => {
+    if (closeTimer.current !== null) clearTimeout(closeTimer.current);
+  }, []);
 
   // Measured after layout, not during render: the card's height depends on how
   // many windows the provider reported, so it cannot be known in advance.
@@ -87,9 +112,7 @@ export function Rail({ views, side = "right" }: { views: ProviderView[]; side?: 
 
       const badgeCentre = badgeBox.top + badgeBox.height / 2 - rootBox.top;
 
-    // Centre on the badge, then keep the whole card on screen. Clamping the top
-    // rather than the tail is what lets the tail keep pointing at the badge even
-    // when the card has been pushed away from it.
+      // Centre on the badge, then keep the whole card inside the viewport.
       const lowest = Math.max(rootBox.height - cardHeight - EDGE_MARGIN, EDGE_MARGIN);
       const top = Math.min(Math.max(badgeCentre - cardHeight / 2, EDGE_MARGIN), lowest);
       const tailOffset = Math.max(18, Math.min(badgeCentre - top, cardHeight - 18));
@@ -104,24 +127,46 @@ export function Rail({ views, side = "right" }: { views: ProviderView[]; side?: 
     return () => observer.disconnect();
   }, [activeView, views]);
 
-  useInteractiveRegions(interactiveRefs, side);
+  useInteractiveRegions(interactiveRefs, `${side}:${expanded}`, movingRefs);
 
   return (
     <div
       ref={rootRef}
       className="rail-root"
       data-side={side}
-      onMouseLeave={() => setActive(null)}
+      data-expanded={expanded}
+      onPointerLeave={scheduleClose}
+      onPointerMove={(event) => {
+        if (event.target === event.currentTarget) scheduleClose();
+        else cancelClose();
+      }}
+      onFocusCapture={cancelClose}
       onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget)) setActive(null);
+        if (!event.currentTarget.contains(event.relatedTarget)) scheduleClose();
       }}
       onKeyDown={(event) => {
         if (event.key === "Escape") {
           event.preventDefault();
-          setActive(null);
+          collapse();
+          requestAnimationFrame(() => triggerRef.current?.focus());
         }
       }}
     >
+      <button
+        ref={triggerRef}
+        type="button"
+        className="rail-trigger"
+        aria-label="Show usage indicators"
+        aria-expanded={expanded}
+        aria-controls="provider-rail"
+        aria-hidden={expanded}
+        inert={expanded}
+        onPointerEnter={reveal}
+        onClick={() => {
+          reveal();
+          requestAnimationFrame(() => railRef.current?.querySelector('button')?.focus());
+        }}
+      />
       <motion.div
         id="usage-card"
         ref={cardRef}
@@ -163,7 +208,18 @@ export function Rail({ views, side = "right" }: { views: ProviderView[]; side?: 
         />
       </motion.div>
 
-      <div ref={railRef} className="rail">
+      <motion.div
+        ref={dockRef}
+        className="rail-dock"
+        initial={false}
+        animate={{ x: expanded ? "0%" : side === "right" ? "100%" : "-100%", y: "-50%" }}
+        transition={reduceMotion ? { duration: 0 } : { duration: 0.2, ease: "easeOut" }}
+        inert={!expanded}
+        aria-hidden={!expanded}
+        onPointerEnter={reveal}
+      >
+      <div ref={railRef} id="provider-rail" className="rail">
+        <div className="rail-badges" onScroll={() => setActive(null)}>
         {views.map((view) => (
           <div
             key={view.provider}
@@ -180,7 +236,9 @@ export function Rail({ views, side = "right" }: { views: ProviderView[]; side?: 
             />
           </div>
         ))}
+        </div>
       </div>
+      </motion.div>
     </div>
   );
 }
