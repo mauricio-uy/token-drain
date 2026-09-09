@@ -4,6 +4,7 @@ import { SettingsPanel } from "./components/SettingsPanel";
 import { currentSurface } from "./lib/surface";
 import { useUsage } from "./lib/usage";
 import { useRailSide } from "./lib/settings";
+import { useAutomaticUpdates } from "./lib/updates";
 
 /**
  * The rail. Kept separate from `App` so the usage subscription only runs in the
@@ -11,6 +12,7 @@ import { useRailSide } from "./lib/settings";
  * in the settings window too.
  */
 function RailSurface() {
+  useAutomaticUpdates();
   return <Rail views={useUsage()} side={useRailSide()} />;
 }
 

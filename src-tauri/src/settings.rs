@@ -62,6 +62,10 @@ pub struct Settings {
     /// Percentages worth interrupting the user at. A set, so it is inherently
     /// sorted and free of duplicates.
     pub notification_thresholds: BTreeSet<u8>,
+    /// Explicit consent for the only optional outbound request the app makes.
+    /// When enabled, the rail checks GitHub Releases at startup and installs a
+    /// newer package only after the updater has verified its signature.
+    pub automatic_updates_enabled: bool,
 }
 
 /// Where the defaults come from: 80% is the point at which a long task is worth
@@ -78,6 +82,7 @@ impl Default for Settings {
             vertical_offset: 0,
             notifications_enabled: true,
             notification_thresholds: BTreeSet::from(DEFAULT_THRESHOLDS),
+            automatic_updates_enabled: false,
         }
     }
 }
@@ -279,6 +284,7 @@ mod tests {
             vertical_offset: -120,
             notifications_enabled: false,
             notification_thresholds: BTreeSet::from([50, 90]),
+            automatic_updates_enabled: true,
         };
 
         SettingsStore::open(&dir.0)
@@ -404,6 +410,7 @@ mod tests {
         assert_eq!(
             keys,
             [
+                "automaticUpdatesEnabled",
                 "disabledProviders",
                 "notificationThresholds",
                 "notificationsEnabled",

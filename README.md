@@ -8,7 +8,7 @@ session window, the weekly window, and when each resets. The rail sits above
 other windows, has no taskbar entry, and passes clicks through everywhere except
 the rail and the card themselves.
 
-Claude and Codex are supported today.
+Claude, Codex, and OpenCode Go are supported today.
 
 ---
 
@@ -75,11 +75,17 @@ memory that does not survive a reboot.
 |---|---|
 | `api.anthropic.com` | Claude usage |
 | `chatgpt.com` | Codex usage |
+| `github.com` | Optional signed-update metadata and release downloads, only when automatic updates are enabled |
+| `objects.githubusercontent.com` | GitHub's release-asset host for the optional signed update download |
 
-**Those two, and nothing else.** The app performs no telemetry, no analytics and
-no crash reporting. This was verified rather than assumed: a release build was
-run with every TCP connection owned by its process sampled and checked against
-the addresses those two hostnames resolve to.
+With automatic updates disabled, the app itself contacts only the two provider
+hosts. If you explicitly enable automatic updates in **Settings → Updates**, the
+native updater also contacts GitHub Releases at startup. It accepts and installs
+only an artifact whose signature matches Token Drain's embedded public release
+key. The app performs no telemetry, analytics, or crash reporting. This was
+verified rather than assumed: a release build was run with every TCP connection
+owned by its process sampled and checked against the addresses those two provider
+hostnames resolve to.
 
 One honest caveat. The app hosts Microsoft's **WebView2** runtime to draw its
 interface, and that runtime opens its own HTTPS connections to Microsoft. It is
@@ -184,7 +190,24 @@ cargo test --test live_usage -- --ignored --nocapture
    [`CHANGELOG.md`](CHANGELOG.md) into a dated release section using the
    `YYYY-MM-DD` format.
 4. Run `npm run build`, then `npm run tauri build` to produce the installers.
-5. Test the generated NSIS installer before publishing it.
+5. Test the generated NSIS installer before publishing it. The build must have
+   `TAURI_SIGNING_PRIVATE_KEY_PATH` set to the local private-key path and
+   `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` set in its environment; neither value
+   belongs in a repository file.
+6. In GitHub Actions, create the repository secrets
+   `TAURI_SIGNING_PRIVATE_KEY` (the complete private-key file) and
+   `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. Keep both secret; the public key in
+   `src-tauri/tauri.conf.json` is intentionally safe to commit.
+7. Push a tag named `v<version>`. The release workflow checks that the tag and
+   manifests agree, signs the NSIS updater artifact, and publishes it with
+   `latest.json`. It selects the NSIS installer for Windows updates.
+
+### Automatic updates
+
+Automatic updates are off by default. Enable **Settings → Updates → Download
+and install updates automatically** to let the rail check the latest GitHub
+Release at startup. If a newer signed release is available, it is downloaded,
+Windows closes the app while the NSIS installer runs, and the app restarts.
 
 ---
 

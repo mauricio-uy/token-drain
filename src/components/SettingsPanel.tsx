@@ -267,6 +267,24 @@ export function SettingsPanel() {
           Launch at login
         </label>
       </Section>
+
+      <Section
+        title="Updates"
+        hint="Off by default. When enabled, the rail checks GitHub Releases when it starts."
+      >
+        <label className="settings-check">
+          <input
+            type="checkbox"
+            checked={settings.automaticUpdatesEnabled}
+            onChange={(event) => update({ automaticUpdatesEnabled: event.target.checked })}
+          />
+          Download and install updates automatically
+        </label>
+        <p className="settings-hint settings-hint--after-control">
+          Updates are accepted only when their signature matches Token Drain's
+          release key. Windows closes and restarts the app while installing.
+        </p>
+      </Section>
     </div>
   );
 }

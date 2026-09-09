@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
   quota windows.
 - A monochrome application mark, edge reveal, independent usage rings, and a
   floating settings shortcut.
+- An opt-in automatic updater for signed GitHub Releases.
 
 ### Changed
 

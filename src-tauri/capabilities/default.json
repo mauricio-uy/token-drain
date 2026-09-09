@@ -9,6 +9,7 @@
   "permissions": [
     "core:default",
     "opener:default",
-    "notification:default"
+    "notification:default",
+    "updater:default"
   ]
 }

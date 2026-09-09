@@ -79,6 +79,10 @@ pub fn run() {
         ))
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
+        // The plugin verifies every downloaded updater artifact against the
+        // public key in `tauri.conf.json`; the corresponding private key is
+        // supplied only to the release workflow as a GitHub secret.
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(InteractiveRegions::default())
         .invoke_handler(tauri::generate_handler![
             set_interactive_regions,

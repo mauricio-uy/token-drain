@@ -88,6 +88,11 @@
   overflow-wrap: anywhere;
 }
 
+.settings-hint--after-control {
+  margin-top: 8px;
+  margin-bottom: 0;
+}
+
 .settings-warning {
   margin: 10px 0 0;
   color: var(--level-warn);

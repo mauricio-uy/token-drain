@@ -33,6 +33,7 @@ reqwest = { version = "0.13.4", default-features = false, features = ["json", "r
 tauri-plugin-autostart = "2.5.1"
 tauri-plugin-single-instance = "2.4.4"
 tauri-plugin-notification = "2.4.0"
+tauri-plugin-updater = "2.11.0"
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration

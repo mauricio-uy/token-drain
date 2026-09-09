@@ -21,6 +21,8 @@ export type Settings = {
   notificationsEnabled: boolean;
   /** Percentages worth interrupting at. Sorted and deduplicated by the backend. */
   notificationThresholds: number[];
+  /** Consent to check GitHub Releases and install a signature-verified update. */
+  automaticUpdatesEnabled: boolean;
 };
 
 /** Read the normalized settings currently in force. */
