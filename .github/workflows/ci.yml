@@ -56,7 +56,7 @@ jobs:
         run: npm run build
 
       - name: Check Rust formatting
-        run: cargo fmt --all -- --check
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
 
       - name: Run Rust tests
         run: cargo test --manifest-path src-tauri/Cargo.toml --locked
