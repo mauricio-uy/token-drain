@@ -41,7 +41,7 @@ pub const RAIL_WINDOW_LABEL: &str = "rail";
 fn data_directory(app: &tauri::AppHandle) -> std::path::PathBuf {
     app.path()
         .app_data_dir()
-        .unwrap_or_else(|_| std::env::temp_dir().join("tok-ching"))
+        .unwrap_or_else(|_| std::env::temp_dir().join("token-drain"))
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

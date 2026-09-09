@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="#000000">
-  <title>Tok-Ching: a token ringing the register</title>
+  <title>Token Drain: a token ringing the register</title>
   <!-- Transparent cutouts keep the mark strictly monochrome on any surface. -->
   <path fill-rule="evenodd" d="M14 25h21v14h11l9 9v10H7V48l7-9V25Zm5 5v5h11v-5H19Zm-3 18v5h30v-5H16Z"/>
   <path fill-rule="evenodd" d="M44 10a12 12 0 1 1 0 24 12 12 0 0 1 0-24Zm-6 7v4h4v7h4v-7h4v-4H38Z"/>

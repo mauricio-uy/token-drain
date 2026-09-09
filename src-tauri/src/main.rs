@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    tok_ching_lib::run()
+    token_drain_lib::run()
 }

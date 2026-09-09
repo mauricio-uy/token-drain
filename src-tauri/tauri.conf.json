@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "tok-ching",
+  "productName": "Token Drain",
   "version": "0.1.0",
-  "identifier": "dev.tokching.app",
+  "identifier": "dev.tokendrain.app",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "rail",
-        "title": "tok-ching",
+        "title": "Token Drain",
         "width": 460,
         "height": 520,
         "resizable": false,

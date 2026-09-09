@@ -9,7 +9,7 @@
 //! in the taskbar. The rail hides from the taskbar because it is furniture; a
 //! settings screen you cannot get back to after clicking behind it is just lost.
 
-use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri::{AppHandle, Manager, Theme, WebviewUrl, WebviewWindowBuilder};
 
 pub const SETTINGS_WINDOW_LABEL: &str = "settings";
 
@@ -50,10 +50,20 @@ pub fn open(app: &AppHandle) -> tauri::Result<()> {
         SETTINGS_WINDOW_LABEL,
         WebviewUrl::App("index.html".into()),
     )
-    .title("tok-ching settings")
-    // Sized to the content. The window cannot be resized, so slack at the
-    // bottom is not something the user can tidy away themselves.
-    .inner_size(440.0, 690.0)
+    .title("Token Drain settings")
+    // Forced rather than left to follow the desktop. The panel is dark on every
+    // machine, so a system-light title bar would put a white strip above a black
+    // window on exactly the desktops that asked for light. On Windows this sets
+    // the frame's immersive dark mode, which is the only handle CSS does not
+    // have: the title bar is drawn by the compositor, not by the page.
+    .theme(Some(Theme::Dark))
+    // There is no one content height any more: every section starts collapsed
+    // and the user opens what they need, so the panel is a short list until it
+    // is not. Sized to hold the closed list with room for a section or two open
+    // — tall enough that the common edit needs no scrolling, short enough that
+    // the window is not mostly empty when it appears. The window cannot be
+    // resized, so slack at the bottom is not something the user can tidy away.
+    .inner_size(440.0, 520.0)
     .resizable(false)
     .center();
 

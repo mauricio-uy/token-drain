@@ -14,11 +14,11 @@
 //! Security: tokens are read, sent to their own provider, and dropped. They are
 //! never printed; the only output is percentages and reset timestamps.
 
-use tok_ching_lib::providers::claude::ClaudeProvider;
-use tok_ching_lib::providers::codex::CodexProvider;
-use tok_ching_lib::providers::http::build_client;
-use tok_ching_lib::providers::provider::UsageProvider;
-use tok_ching_lib::providers::usage::{ProviderUsage, UsageWindow};
+use token_drain_lib::providers::claude::ClaudeProvider;
+use token_drain_lib::providers::codex::CodexProvider;
+use token_drain_lib::providers::http::build_client;
+use token_drain_lib::providers::provider::UsageProvider;
+use token_drain_lib::providers::usage::{ProviderUsage, UsageWindow};
 
 fn describe(provider: &str, label: &str, window: Option<&UsageWindow>) -> String {
     match window {

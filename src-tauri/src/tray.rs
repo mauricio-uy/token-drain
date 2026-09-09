@@ -66,7 +66,7 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
     )?;
 
     let settings = MenuItem::with_id(app, MENU_SETTINGS, "Settings…", true, None::<&str>)?;
-    let quit = MenuItem::with_id(app, MENU_QUIT, "Quit tok-ching", true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, MENU_QUIT, "Quit Token Drain", true, None::<&str>)?;
 
     let menu = Menu::with_items(
         app,
@@ -81,8 +81,8 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
 
     let checkbox = visible.clone();
 
-    let mut builder = TrayIconBuilder::with_id("tok-ching")
-        .tooltip("tok-ching")
+    let mut builder = TrayIconBuilder::with_id("token-drain")
+        .tooltip("Token Drain")
         .menu(&menu)
         .on_menu_event(move |app, event| match event.id().as_ref() {
             MENU_REFRESH => {

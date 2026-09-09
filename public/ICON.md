@@ -1,6 +1,6 @@
-# Tok-Ching icon
+# Token Drain icon
 
-`tok-ching.svg` is the original app mark: a cash register, a token with a
+`token-drain.svg` is the original app mark: a cash register, a token with a
 negative-space T, and three ringing strokes. All visible pixels are black;
 cutouts and the background are transparent. The mark is covered by the
 repository's MIT license.
@@ -8,7 +8,7 @@ repository's MIT license.
 Generate native assets with the installed Tauri CLI:
 
 ```powershell
-npm run tauri icon -- public/tok-ching.svg --output <temporary-output-directory>
+npm run tauri icon -- public/token-drain.svg --output <temporary-output-directory>
 ```
 
 Copy the generated desktop files matching `src-tauri/icons/` into that
