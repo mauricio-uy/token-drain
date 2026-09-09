@@ -151,6 +151,7 @@ npm install         # install frontend dependencies
 npm run tauri dev   # run the app in development
 npm run build       # build the frontend only
 npm run tauri build # produce installers
+npm run check:version # ensure release manifests agree
 cargo test          # run the Rust suite, from src-tauri/
 ```
 
@@ -171,6 +172,19 @@ providers. They are ignored by default and print what they parsed:
 ```sh
 cargo test --test live_usage -- --ignored --nocapture
 ```
+
+### Release checklist
+
+1. Choose the next [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
+   version and update it in `package.json`, `src-tauri/Cargo.toml`, and
+   `src-tauri/tauri.conf.json`.
+2. Run `npm run check:version`; it must report one version across all release
+   manifests.
+3. Move the user-visible entries from `[Unreleased]` in
+   [`CHANGELOG.md`](CHANGELOG.md) into a dated release section using the
+   `YYYY-MM-DD` format.
+4. Run `npm run build`, then `npm run tauri build` to produce the installers.
+5. Test the generated NSIS installer before publishing it.
 
 ---
 
