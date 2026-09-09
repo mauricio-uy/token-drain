@@ -39,8 +39,11 @@ pub struct UsageWindow {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ProviderId {
+    /// Anthropic's Claude subscription usage endpoint.
     Claude,
+    /// OpenAI's Codex subscription usage endpoint.
     Codex,
+    /// OpenCode Go's subscription usage endpoint.
     OpencodeGo,
 }
 
@@ -73,10 +76,14 @@ impl ProviderId {
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProviderUsage {
+    /// Provider that produced this snapshot.
     pub provider: ProviderId,
+    /// Short rolling quota, usually five hours.
     pub session: Option<UsageWindow>,
+    /// Longer recurring quota, usually seven days.
     pub weekly: Option<UsageWindow>,
     #[serde(default)]
+    /// Monthly quota, when the provider reports one.
     pub monthly: Option<UsageWindow>,
     /// Plan name, when the provider states one.
     pub plan: Option<String>,

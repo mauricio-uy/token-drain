@@ -55,6 +55,7 @@ function GenericMark({ size = 24 }: LogoProps) {
   );
 }
 
+/** Render the monochrome mark for a known provider, or a neutral fallback. */
 export function ProviderLogo({ provider, size }: { provider: string; size?: number }) {
   switch (provider) {
     case "claude":

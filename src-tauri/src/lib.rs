@@ -1,3 +1,10 @@
+//! Token Drain's native application shell.
+//!
+//! This crate owns the Windows windows, tray integration, persisted state, and
+//! provider polling loop. The WebView receives only serialized usage views and
+//! settings; credentials never cross this boundary.
+#![deny(rustdoc::broken_intra_doc_links)]
+
 pub mod autostart;
 pub mod cache;
 pub mod notify;
@@ -45,6 +52,7 @@ fn data_directory(app: &tauri::AppHandle) -> std::path::PathBuf {
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
+/// Configure and start the Tauri application event loop.
 pub fn run() {
     tauri::Builder::default()
         // Registered before everything else, as the plugin requires: its whole

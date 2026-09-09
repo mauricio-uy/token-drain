@@ -3,7 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { useEffect, useState } from "react";
 import { liveSnapshot } from "./liveSnapshot";
 
-/** Mirrors `BadgeState` in `src-tauri/src/view.rs`. */
+/** Render state assigned by the Rust view layer; it never implies a synthetic percentage. */
 export type BadgeState =
   | "pending"
   | "ok"
@@ -12,6 +12,7 @@ export type BadgeState =
   | "unavailable"
   | "error";
 
+/** One provider quota window as transferred over Tauri IPC. */
 export type UsageWindow = {
   usedPercent: number;
   windowMinutes: number;
@@ -19,6 +20,7 @@ export type UsageWindow = {
   resetsAt: number | null;
 };
 
+/** Last successful provider figures, suitable for current or explicitly stale display. */
 export type ProviderUsage = {
   provider: string;
   session: UsageWindow | null;
@@ -28,12 +30,14 @@ export type ProviderUsage = {
   fetchedAt: number;
 };
 
+/** Actionable explanation attached to a provider failure state. */
 export type Remediation = {
   message: string;
   command: string | null;
   resolvesItself: boolean;
 };
 
+/** Complete render model for one provider badge and its hover card. */
 export type ProviderView = {
   provider: string;
   state: BadgeState;
@@ -49,6 +53,7 @@ export type ProviderView = {
 
 const USAGE_UPDATED_EVENT = "usage-updated";
 
+/** Read the current backend snapshot, including stale cached figures at launch. */
 export async function getUsageSnapshot(): Promise<ProviderView[]> {
   return invoke<ProviderView[]>("get_usage_snapshot");
 }

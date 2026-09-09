@@ -13,6 +13,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
  */
 export type Surface = "rail" | "settings";
 
+/** Resolve the current Tauri window to the React surface it owns. */
 export function currentSurface(): Surface {
   try {
     return getCurrentWindow().label === "settings" ? "settings" : "rail";

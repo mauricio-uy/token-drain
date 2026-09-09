@@ -1,4 +1,9 @@
-/** Serialize writes, keeping only the latest value waiting behind an active one. */
+/**
+ * Serialize writes while coalescing queued values to the newest one.
+ *
+ * An older response is ignored whenever a newer edit is waiting, so an
+ * out-of-order network reply cannot restore stale UI state.
+ */
 export function latestWrite<T>(
   write: (value: T) => Promise<T>,
   onStored: (value: T) => void,

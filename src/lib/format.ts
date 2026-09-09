@@ -11,6 +11,7 @@ const RESET_DATE = new Intl.DateTimeFormat("en-GB", {
   day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
 });
 
+/** Render a full local reset timestamp for a tooltip, or nothing when absent. */
 export function formatResetDate(resetsAt: number | null): string | null {
   return resetsAt !== null && Number.isFinite(resetsAt)
     ? RESET_DATE.format(new Date(resetsAt)) : null;

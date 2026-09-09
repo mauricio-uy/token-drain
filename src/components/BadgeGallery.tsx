@@ -137,6 +137,7 @@ function stateCards(now: number): ProviderView[] {
   ];
 }
 
+/** Render local-only fixtures for visually reviewing every badge and card state. */
 export function BadgeGallery() {
   const now = Date.now();
 

@@ -92,6 +92,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
+/** Render live settings controls that persist each accepted edit immediately. */
 export function SettingsPanel() {
   const { settings, providers, launchAtLogin, error, update, updateLaunchAtLogin } =
     useSettings();

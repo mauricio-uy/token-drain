@@ -7,7 +7,7 @@ import { liveSnapshot } from "./liveSnapshot";
 /** Mirrors `RailSide` in `src-tauri/src/window/placement.rs`. */
 export type RailSide = "right" | "left";
 
-/** Mirrors `Settings` in `src-tauri/src/settings.rs`. */
+/** Persisted preferences mirrored from the Rust settings contract. */
 export type Settings = {
   pollIntervalSeconds: number;
   /**
@@ -23,6 +23,7 @@ export type Settings = {
   notificationThresholds: number[];
 };
 
+/** Read the normalized settings currently in force. */
 export async function getSettings(): Promise<Settings> {
   return invoke<Settings>("get_settings");
 }
@@ -60,6 +61,7 @@ export async function setLaunchAtLogin(enabled: boolean): Promise<boolean> {
   return invoke<boolean>("set_launch_at_login", { enabled });
 }
 
+/** List provider identifiers in the backend's display order. */
 export async function listProviders(): Promise<string[]> {
   return invoke<string[]>("list_providers");
 }

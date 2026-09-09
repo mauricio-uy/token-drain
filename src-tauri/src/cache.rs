@@ -68,6 +68,7 @@ impl UsageCache {
         self.entries.get(&provider)
     }
 
+    /// Returns whether the cache has no successful provider snapshots.
     pub fn is_empty(&self) -> bool {
         self.entries.is_empty()
     }

@@ -1,4 +1,7 @@
-/** Subscribe before reading, without allowing an old initial reply to undo an event. */
+/**
+ * Subscribe before reading an initial snapshot without letting that snapshot
+ * overwrite a newer event received while the read was in flight.
+ */
 export function liveSnapshot<T>(
   subscribe: (receive: (value: T) => void) => Promise<() => void>,
   read: () => Promise<T>,
