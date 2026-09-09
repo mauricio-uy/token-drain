@@ -1,7 +1,6 @@
 import "./ProviderBadge.css";
 import { ProviderLogo } from "./ProviderLogo";
 import type { BadgeState, ProviderView } from "../lib/usage";
-import { formatUsd } from "../lib/money";
 
 const RING_SIZE = 64;
 const RING_STROKE = 4;
@@ -76,11 +75,7 @@ export function ProviderBadge({
   const session = view.usage?.session ?? null;
   const percent = session?.usedPercent ?? null;
   const weeklyPercent = view.usage?.weekly?.usedPercent ?? null;
-  const isBilling = view.provider === "opencode-zen";
-  const billing = view.usage?.billing;
-  const description = isBilling
-    ? billing ? `balance ${formatUsd(billing.balanceUsd)}, reported monthly spend ${formatUsd(billing.monthlySpendUsd)}` : view.state
-    : view.usage
+  const description = view.usage
     ? `5h ${percent === null ? "not reported" : `${Math.round(percent)}% used`}, 7d ${weeklyPercent === null ? "not reported" : `${Math.round(weeklyPercent)}% used`}`
     : view.state;
 
@@ -95,18 +90,15 @@ export function ProviderBadge({
       aria-label={`${view.provider}: ${description}${view.state === "stale" ? ", stale" : ""}`}
     >
       <span className="badge-ring">
-        {!isBilling && <svg aria-hidden="true" width={RING_SIZE} height={RING_SIZE} viewBox={`0 0 ${RING_SIZE} ${RING_SIZE}`}>
+        <svg aria-hidden="true" width={RING_SIZE} height={RING_SIZE} viewBox={`0 0 ${RING_SIZE} ${RING_SIZE}`}>
           <QuotaRing radius={30} percent={percent} window="5h" />
           <QuotaRing radius={23} percent={weeklyPercent} window="7d" />
-        </svg>}
+        </svg>
         <span className="badge-mark">
-          <ProviderLogo provider={view.provider} size={isBilling ? 30 : 22} />
+          <ProviderLogo provider={view.provider} size={22} />
         </span>
       </span>
-      {isBilling ? <span className="badge-billing">
-        <span className="badge-label">{billing ? formatUsd(billing.balanceUsd, true) : labelFor(view.state)}</span>
-        <span className="badge-window-label">ZEN · {billing ? "BALANCE" : "PAY AS YOU GO"}</span>
-      </span> : view.usage ? (
+      {view.usage ? (
         <span className="badge-quotas" aria-hidden="true">
           <span className="badge-quota" title="Outer ring · 5 hours">
             <span className="badge-window-label">5h</span>

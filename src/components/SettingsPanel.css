@@ -59,6 +59,22 @@
   padding-top: 6px;
 }
 
+/*
+ * A named control inside a section. The name is quieter than the section title
+ * above it: a category is what the user is looking for in the closed list, and
+ * two headings of equal weight would make the list unreadable once opened.
+ */
+.settings-field + .settings-field {
+  margin-top: 14px;
+}
+
+.settings-field-title {
+  margin: 0 0 6px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .settings :focus-visible {
   outline: 2px solid var(--level-ok);
   outline-offset: 3px;

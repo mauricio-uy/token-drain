@@ -7,53 +7,6 @@ use crate::providers::credentials::{in_home_directory, normalize_token, parse_js
 
 pub struct ApiCredential(pub(crate) HeaderValue);
 
-pub struct WebCredential {
-    pub(crate) cookie: HeaderValue,
-    pub(crate) workspace: String,
-}
-
-impl std::fmt::Debug for WebCredential {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("WebCredential([redacted])")
-    }
-}
-
-pub fn web_path() -> Result<PathBuf, CredentialError> {
-    in_home_directory(&[".config", "tok-ching", "opencode.credentials.json"])
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct WebFile { cookie: String, workspace_id: String }
-
-pub fn read_web() -> Result<WebCredential, CredentialError> {
-    let path = web_path()?;
-    web_from_file(read_json_file(&path)?, &path)
-}
-
-fn web_from_file(file: WebFile, path: &Path) -> Result<WebCredential, CredentialError> {
-    let missing = |field| CredentialError::MissingField { path: path.into(), field };
-    let workspace = file.workspace_id.trim();
-    let suffix = workspace.strip_prefix("wrk_").or_else(|| workspace.strip_prefix("wk_"));
-    if !suffix.is_some_and(|s| !s.is_empty() && s.len() <= 100 && s.bytes().all(|b| b.is_ascii_alphanumeric())) {
-        return Err(missing("valid OpenCode workspace ID"));
-    }
-    let mut cookies = std::collections::BTreeMap::new();
-    for pair in file.cookie.split(';') {
-        let Some((name, value)) = pair.trim().split_once('=') else { continue };
-        if !matches!(name, "auth" | "__Host-auth") { continue; }
-        if value.is_empty() || !value.bytes().all(|b| (0x21..=0x7e).contains(&b) && b != b'"' && b != b'\\' && b != b',') {
-            return Err(missing("valid OpenCode session cookie"));
-        }
-        if cookies.insert(name, value).is_some() { return Err(missing("unambiguous OpenCode session cookie")); }
-    }
-    if cookies.is_empty() { return Err(missing("OpenCode auth cookie")); }
-    let value = cookies.iter().map(|(key,value)| format!("{key}={value}")).collect::<Vec<_>>().join("; ");
-    let mut cookie = HeaderValue::from_str(&value).map_err(|_| missing("valid OpenCode session cookie"))?;
-    cookie.set_sensitive(true);
-    Ok(WebCredential { cookie, workspace: workspace.to_owned() })
-}
-
 impl std::fmt::Debug for ApiCredential {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str("ApiCredential([redacted])")
@@ -104,20 +57,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn web_auth_filters_cookies_and_rejects_injection() {
-        let path = Path::new("fixture/opencode.credentials.json");
-        let credential = web_from_file(WebFile { cookie: "tracking=unrelated; auth=not-a-real-session; __Host-auth=test-only".into(), workspace_id: "wrk_test123".into() }, path).unwrap();
-        assert_eq!(credential.cookie.to_str().unwrap(), "__Host-auth=test-only; auth=not-a-real-session");
-        assert!(credential.cookie.is_sensitive());
-        assert_eq!(format!("{credential:?}"), "WebCredential([redacted])");
-        for workspace in ["../other", "wrk_", "wrk_test/keys", "https://example.com"] {
-            assert!(web_from_file(WebFile { cookie: "auth=test-only".into(), workspace_id: workspace.into() }, path).is_err());
-        }
-        for cookie in ["tracking=none", "auth=a\r\nX-Test: b", "auth=one; auth=two", "auth="] {
-            assert!(web_from_file(WebFile { cookie: cookie.into(), workspace_id: "wrk_test".into() }, path).is_err());
-        }
-    }
-    #[test]
     fn api_credential_is_validated_and_redacted() {
         let path = Path::new("fixture/auth.json");
         let credential = parse_api(r#"{"opencode-go":{"type":"api","key":"test-only-not-valid"}}"#, path).unwrap();
@@ -136,7 +75,7 @@ mod tests {
 
     #[test]
     fn disk_credentials_are_read_only_and_missing_files_fail() {
-        let path = std::env::temp_dir().join(format!("tok-ching-go-readonly-{}.json", std::process::id()));
+        let path = std::env::temp_dir().join(format!("token-drain-go-readonly-{}.json", std::process::id()));
         let raw = r#"{"opencode-go":{"type":"api","key":"test-only-not-valid"}}"#;
         std::fs::write(&path, raw).unwrap();
         let modified = std::fs::metadata(&path).unwrap().modified().unwrap();

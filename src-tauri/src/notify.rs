@@ -97,7 +97,6 @@ fn display_name(provider: ProviderId) -> &'static str {
         ProviderId::Claude => "Claude",
         ProviderId::Codex => "Codex",
         ProviderId::OpencodeGo => "OpenCode Go",
-        ProviderId::OpencodeZen => "OpenCode Zen",
     }
 }
 
@@ -335,7 +334,6 @@ mod tests {
             session: UsageWindow::new(session_percent, SESSION_WINDOW_MINUTES, resets_at),
             weekly: None,
             monthly: None,
-            billing: None,
             plan: None,
             fetched_at: 0,
         }
@@ -511,7 +509,7 @@ mod tests {
 
     impl TempDir {
         fn new(name: &str) -> Self {
-            let path = std::env::temp_dir().join(format!("tok-ching-alerts-{name}"));
+            let path = std::env::temp_dir().join(format!("token-drain-alerts-{name}"));
             let _ = fs::remove_dir_all(&path);
             fs::create_dir_all(&path).expect("should create temp dir");
             Self(path)

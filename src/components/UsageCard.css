@@ -129,29 +129,6 @@
   letter-spacing: 0.06em;
 }
 
-.card-billing {
-  display: grid;
-  gap: 12px;
-  margin: 0 0 12px;
-}
-
-.card-billing > div {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 12px;
-}
-
-.card-billing dt { color: var(--text-muted); }
-.card-billing dd {
-  margin: 0;
-  text-align: right;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  overflow-wrap: anywhere;
-  min-width: 0;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .card-bar-fill {
     transition: none;

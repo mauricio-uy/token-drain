@@ -72,7 +72,7 @@ mod tests {
 
     #[tokio::test]
     async fn a_missing_credentials_file_fails_before_any_request() {
-        let path = std::env::temp_dir().join("tok-ching-absent-codex-credentials.json");
+        let path = std::env::temp_dir().join("token-drain-absent-codex-credentials.json");
         assert!(!path.exists(), "test precondition");
 
         let provider =

@@ -192,7 +192,7 @@ mod tests {
 
     #[test]
     fn reports_a_missing_file() {
-        let path = std::env::temp_dir().join("tok-ching-absent-codex-auth.json");
+        let path = std::env::temp_dir().join("token-drain-absent-codex-auth.json");
         assert!(!path.exists(), "test precondition");
 
         assert!(matches!(
@@ -215,7 +215,7 @@ mod tests {
     fn reading_never_modifies_the_file() {
         // Same guarantee as the Claude reader: this file belongs to the CLI and
         // is never written by this app.
-        let path = std::env::temp_dir().join("tok-ching-readonly-codex.json");
+        let path = std::env::temp_dir().join("token-drain-readonly-codex.json");
         let original = format!(r#"{{"tokens": {{"access_token": "{FAKE_ACCESS_TOKEN}"}}}}"#);
         std::fs::write(&path, &original).expect("should write fixture");
         let before = std::fs::metadata(&path).expect("metadata").modified().ok();

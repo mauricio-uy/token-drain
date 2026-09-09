@@ -16,17 +16,6 @@ pub const WEEKLY_WINDOW_MINUTES: u32 = 10_080;
 /// Nominal month length; the provider's reset datetime remains authoritative.
 pub const MONTHLY_WINDOW_MINUTES: u32 = 43_200;
 
-/// Workspace billing figures, distinct from subscription quota percentages.
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct BillingUsage {
-    pub balance_usd: f64,
-    pub monthly_spend_usd: Option<f64>,
-    pub monthly_limit_usd: Option<f64>,
-    /// Date of the provider's last monthly spend update, not a reset estimate.
-    pub spend_updated_at: Option<i64>,
-}
-
 /// One rate-limit window.
 ///
 /// Note what is deliberately absent: any human-readable rendering of the reset
@@ -53,17 +42,25 @@ pub enum ProviderId {
     Claude,
     Codex,
     OpencodeGo,
-    OpencodeZen,
 }
 
 impl ProviderId {
+    /// Parse a provider identifier persisted by a previous app launch.
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "claude" => Some(Self::Claude),
+            "codex" => Some(Self::Codex),
+            "opencode-go" => Some(Self::OpencodeGo),
+            _ => None,
+        }
+    }
+
     /// Stable identifier used in caches and log lines.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Claude => "claude",
             Self::Codex => "codex",
             Self::OpencodeGo => "opencode-go",
-            Self::OpencodeZen => "opencode-zen",
         }
     }
 }
@@ -81,8 +78,6 @@ pub struct ProviderUsage {
     pub weekly: Option<UsageWindow>,
     #[serde(default)]
     pub monthly: Option<UsageWindow>,
-    #[serde(default)]
-    pub billing: Option<BillingUsage>,
     /// Plan name, when the provider states one.
     pub plan: Option<String>,
     /// Unix milliseconds at which this snapshot was retrieved. Drives the
@@ -114,24 +109,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn old_snapshots_decode_and_new_fields_round_trip() {
+    fn snapshots_with_optional_monthly_windows_round_trip() {
         let mut usage: ProviderUsage = serde_json::from_str(
             r#"{"provider":"claude","session":null,"weekly":null,"plan":null,"fetchedAt":100}"#,
         ).unwrap();
         assert!(usage.monthly.is_none());
-        assert!(usage.billing.is_none());
         usage.monthly = UsageWindow::new(42.0, MONTHLY_WINDOW_MINUTES, Some(123456789));
-        usage.billing = Some(BillingUsage {
-            balance_usd: 12.34,
-            monthly_spend_usd: Some(5.67),
-            monthly_limit_usd: None,
-            spend_updated_at: Some(123456),
-        });
         let encoded = serde_json::to_string(&usage).unwrap();
         assert_eq!(serde_json::from_str::<ProviderUsage>(&encoded).unwrap(), usage);
-        let billing = serde_json::to_value(usage.billing.unwrap()).unwrap();
-        let keys: Vec<_> = billing.as_object().unwrap().keys().map(String::as_str).collect();
-        assert_eq!(keys, ["balanceUsd", "monthlyLimitUsd", "monthlySpendUsd", "spendUpdatedAt"]);
     }
 
     #[test]

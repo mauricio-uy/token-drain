@@ -26,10 +26,16 @@ const CACHE_FILE_NAME: &str = "usage-cache.json";
 /// other version is discarded rather than guessed at.
 const CACHE_FORMAT_VERSION: u32 = 1;
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Serialize)]
 struct CacheFile {
     version: u32,
     entries: Vec<ProviderUsage>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CacheFileRead {
+    version: u32,
+    entries: Vec<serde_json::Value>,
 }
 
 /// The last successful snapshot for each provider.
@@ -121,7 +127,7 @@ impl UsageCache {
 
 fn read_entries(path: &Path) -> Option<BTreeMap<ProviderId, ProviderUsage>> {
     let raw = fs::read_to_string(path).ok()?;
-    let file: CacheFile = serde_json::from_str(&raw).ok()?;
+    let file: CacheFileRead = serde_json::from_str(&raw).ok()?;
 
     if file.version != CACHE_FORMAT_VERSION {
         return None;
@@ -130,6 +136,7 @@ fn read_entries(path: &Path) -> Option<BTreeMap<ProviderId, ProviderUsage>> {
     Some(
         file.entries
             .into_iter()
+            .filter_map(|entry| serde_json::from_value::<ProviderUsage>(entry).ok())
             .map(|usage| (usage.provider, usage))
             .collect(),
     )
@@ -145,7 +152,7 @@ mod tests {
 
     impl TempDir {
         fn new(name: &str) -> Self {
-            let path = std::env::temp_dir().join(format!("tok-ching-cache-{name}"));
+            let path = std::env::temp_dir().join(format!("token-drain-cache-{name}"));
             let _ = fs::remove_dir_all(&path);
             fs::create_dir_all(&path).expect("should create temp dir");
             Self(path)
@@ -168,7 +175,6 @@ mod tests {
             session: UsageWindow::new(used_percent, SESSION_WINDOW_MINUTES, Some(1_788_580_800_000)),
             weekly: None,
             monthly: None,
-            billing: None,
             plan: Some("some_plan".to_owned()),
             fetched_at,
         }
@@ -295,6 +301,21 @@ mod tests {
     }
 
     #[test]
+    fn an_unrecognized_cached_provider_does_not_discard_valid_snapshots() {
+        let dir = TempDir::new("retired-provider");
+        fs::write(
+            dir.path().join(CACHE_FILE_NAME),
+            r#"{"version":1,"entries":[{"provider":"claude","session":null,"weekly":null,"monthly":null,"plan":null,"fetchedAt":1},{"provider":"retired-provider","session":null,"weekly":null,"monthly":null,"plan":null,"fetchedAt":1}]}"#,
+        )
+        .unwrap();
+
+        let cache = UsageCache::open(dir.path());
+
+        assert!(cache.get(ProviderId::Claude).is_some());
+        assert_eq!(cache.entries().len(), 1);
+    }
+
+    #[test]
     fn writing_creates_a_missing_directory() {
         let dir = TempDir::new("nested");
         let nested = dir.path().join("deeper").join("still-deeper");
@@ -345,7 +366,7 @@ mod tests {
 
         assert_eq!(
             keys,
-            ["billing", "fetchedAt", "monthly", "plan", "provider", "session", "weekly"],
+            ["fetchedAt", "monthly", "plan", "provider", "session", "weekly"],
             "the cached shape changed; confirm no credential material was added"
         );
     }

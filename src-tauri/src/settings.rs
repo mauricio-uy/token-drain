@@ -136,6 +136,12 @@ struct SettingsFile {
     settings: Settings,
 }
 
+#[derive(Debug, Deserialize)]
+struct SettingsFileRead {
+    version: u32,
+    settings: serde_json::Value,
+}
+
 /// The settings, on disk and in memory.
 pub struct SettingsStore {
     path: PathBuf,
@@ -159,9 +165,25 @@ impl SettingsStore {
 
     fn read(path: &Path) -> Option<Settings> {
         let contents = fs::read_to_string(path).ok()?;
-        let file: SettingsFile = serde_json::from_str(&contents).ok()?;
+        let mut file: SettingsFileRead = serde_json::from_str(&contents).ok()?;
 
-        (file.version == SETTINGS_FORMAT_VERSION).then_some(file.settings)
+        if file.version != SETTINGS_FORMAT_VERSION {
+            return None;
+        }
+
+        if let Some(providers) = file
+            .settings
+            .get_mut("disabledProviders")
+            .and_then(serde_json::Value::as_array_mut)
+        {
+            providers.retain(|value| {
+                value
+                    .as_str()
+                    .is_some_and(|provider| ProviderId::parse(provider).is_some())
+            });
+        }
+
+        serde_json::from_value(file.settings).ok()
     }
 
     /// The settings as they stand.
@@ -223,7 +245,7 @@ mod tests {
 
     impl TempDir {
         fn new(name: &str) -> Self {
-            let path = std::env::temp_dir().join(format!("tok-ching-settings-{name}"));
+            let path = std::env::temp_dir().join(format!("token-drain-settings-{name}"));
             let _ = fs::remove_dir_all(&path);
             fs::create_dir_all(&path).expect("should create temp dir");
             Self(path)
@@ -417,6 +439,23 @@ mod tests {
             settings.notification_thresholds,
             BTreeSet::from(DEFAULT_THRESHOLDS)
         );
+    }
+
+    #[test]
+    fn an_unrecognized_disabled_provider_preserves_other_preferences() {
+        let dir = TempDir::new("retired-provider");
+        let contents = concat!(
+            r#"{"version":1,"settings":{"pollIntervalSeconds":900,"#,
+            r#""disabledProviders":["codex","retired-provider"],"railSide":"left","verticalOffset":-120}}"#
+        );
+        fs::write(dir.0.join(SETTINGS_FILE_NAME), contents).expect("should write");
+
+        let settings = SettingsStore::open(&dir.0).get();
+
+        assert_eq!(settings.poll_interval_seconds, 900);
+        assert_eq!(settings.rail_side, RailSide::Left);
+        assert!(!settings.is_enabled(ProviderId::Codex));
+        assert_eq!(settings.disabled_providers.len(), 1);
     }
 
     #[test]

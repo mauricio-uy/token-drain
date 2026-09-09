@@ -187,7 +187,7 @@ mod tests {
 
     #[test]
     fn reports_a_missing_file() {
-        let path = std::env::temp_dir().join("tok-ching-does-not-exist-9d1c250a.json");
+        let path = std::env::temp_dir().join("token-drain-does-not-exist-9d1c250a.json");
         assert!(!path.exists(), "test precondition");
 
         assert!(matches!(
@@ -213,7 +213,7 @@ mod tests {
         // This file belongs to the CLI: writing to it races the CLI's own token
         // rotation and can strand a single-use refresh token, signing the user
         // out of the tool they actually depend on.
-        let path = std::env::temp_dir().join("tok-ching-readonly-claude.json");
+        let path = std::env::temp_dir().join("token-drain-readonly-claude.json");
         let original = format!(
             r#"{{"claudeAiOauth": {{"accessToken": "{FAKE_ACCESS_TOKEN}", "expiresAt": 1}}}}"#
         );

@@ -76,7 +76,7 @@ mod tests {
     async fn a_missing_credentials_file_fails_before_any_request() {
         // Why: no network call may be attempted when there is nothing to
         // authenticate with. This also keeps the normal suite offline.
-        let path = std::env::temp_dir().join("tok-ching-absent-claude-credentials.json");
+        let path = std::env::temp_dir().join("token-drain-absent-claude-credentials.json");
         assert!(!path.exists(), "test precondition");
 
         let provider =

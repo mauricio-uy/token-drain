@@ -49,7 +49,7 @@ pub fn parse_usage(body: &[u8], now: i64) -> Result<ProviderUsage, UsageError> {
         session: window(response.usage.rolling, SESSION_WINDOW_MINUTES)?,
         weekly: window(response.usage.weekly, WEEKLY_WINDOW_MINUTES)?,
         monthly: window(response.usage.monthly, MONTHLY_WINDOW_MINUTES)?,
-        billing: None, plan: Some("Go".into()), fetched_at: now,
+        plan: Some("Go".into()), fetched_at: now,
     })
 }
 

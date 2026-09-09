@@ -116,7 +116,7 @@ mod tests {
 
     #[test]
     fn reports_a_missing_file() {
-        let path = std::env::temp_dir().join("tok-ching-shared-absent-fixture.json");
+        let path = std::env::temp_dir().join("token-drain-shared-absent-fixture.json");
         assert!(!path.exists(), "test precondition");
 
         assert!(matches!(
@@ -129,7 +129,7 @@ mod tests {
     fn reports_an_unreadable_file() {
         // A directory in place of a file produces a non-NotFound io error,
         // which is the branch under test and is reproducible everywhere.
-        let dir = std::env::temp_dir().join("tok-ching-shared-unreadable-fixture");
+        let dir = std::env::temp_dir().join("token-drain-shared-unreadable-fixture");
         fs::create_dir_all(&dir).expect("should create fixture directory");
 
         let result = read_json_file::<Sample>(&dir);

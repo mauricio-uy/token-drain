@@ -3,13 +3,11 @@ import { ProviderLogo } from "./ProviderLogo";
 import { severityOf } from "./ProviderBadge";
 import { formatAge, formatReset, formatResetDate } from "../lib/format";
 import type { ProviderView, UsageWindow } from "../lib/usage";
-import { formatUsd } from "../lib/money";
 
 const PROVIDER_TITLES: Record<string, string> = {
   claude: "Claude Usage",
   codex: "Codex Usage",
   "opencode-go": "OpenCode Go Usage",
-  "opencode-zen": "OpenCode Zen Billing",
 };
 
 function titleFor(provider: string): string {
@@ -101,19 +99,7 @@ export function UsageCard({ view, now }: { view: ProviderView; now: number }) {
       {usage?.weekly && <WindowRow label="Weekly usage" window={usage.weekly} now={now} />}
       {usage?.monthly && <WindowRow label="Monthly usage" window={usage.monthly} now={now} />}
 
-      {usage?.billing && <>
-        <dl className="card-billing">
-          <div><dt>Balance</dt><dd>{formatUsd(usage.billing.balanceUsd)}</dd></div>
-          <div><dt>Reported monthly spend</dt><dd>{formatUsd(usage.billing.monthlySpendUsd)}</dd></div>
-          <div><dt>Monthly spending limit</dt><dd>{usage.billing.monthlyLimitUsd === null ? "Not set" : formatUsd(usage.billing.monthlyLimitUsd)}</dd></div>
-        </dl>
-        <p className="card-note">USD · Pay as you go. No 5-hour or 7-day quota.</p>
-        <p className="card-note">{usage.billing.spendUpdatedAt
-          ? `Spend last updated ${formatResetDate(usage.billing.spendUpdatedAt)}.`
-          : "Spend period not reported by the console."}</p>
-      </>}
-
-      {!usage?.session && !usage?.weekly && !usage?.monthly && !usage?.billing && !view.remediation && (
+      {!usage?.session && !usage?.weekly && !usage?.monthly && !view.remediation && (
         <p className="card-note">
           {/* Nothing has been fetched yet, which is not the same as a provider
               that answered and reported no limits. Saying the latter would be a

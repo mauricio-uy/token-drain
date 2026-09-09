@@ -81,7 +81,6 @@ pub fn map_response(
         session: classified.session,
         weekly: classified.weekly,
         monthly: None,
-        billing: None,
         plan: Some(plan),
         fetched_at,
     })

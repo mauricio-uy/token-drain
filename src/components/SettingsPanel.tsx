@@ -37,7 +37,6 @@ const PROVIDER_NAMES: Record<string, string> = {
   claude: "Claude",
   codex: "Codex",
   "opencode-go": "OpenCode Go",
-  "opencode-zen": "OpenCode Zen",
 };
 
 /** Title case as a fallback, so a provider added later still reads properly. */
@@ -45,20 +44,27 @@ function nameFor(provider: string): string {
   return PROVIDER_NAMES[provider] ?? provider.charAt(0).toUpperCase() + provider.slice(1);
 }
 
+/**
+ * One collapsible section.
+ *
+ * Every section starts closed, with no way to ask for otherwise. A settings
+ * window is opened to change one thing, and a screen that opens as a wall of
+ * controls makes the user scroll past everything they did not come for. Closed,
+ * the window is a table of contents: the titles say what is configurable, and
+ * the user opens the one row they came for.
+ */
 function Section({
   title,
   hint,
-  defaultOpen = true,
   children,
 }: {
   title: string;
   hint?: string;
-  defaultOpen?: boolean;
   children: React.ReactNode;
 }) {
   const titleId = useId();
   return (
-    <details className="settings-section" open={defaultOpen}>
+    <details className="settings-section">
       <summary className="settings-summary">
         <h2 id={titleId} className="settings-title">{title}</h2>
       </summary>
@@ -67,6 +73,22 @@ function Section({
         {children}
       </div>
     </details>
+  );
+}
+
+/**
+ * A named control inside a section.
+ *
+ * Sections used to hold one control each, so the section title named it. A
+ * category holds several, and a control with no name of its own would be left
+ * to be identified by its position under the title.
+ */
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="settings-field">
+      <h3 className="settings-field-title">{label}</h3>
+      {children}
+    </div>
   );
 }
 
@@ -134,13 +156,10 @@ export function SettingsPanel() {
         )}
       </Section>
 
-      <Section title="OpenCode setup" defaultOpen={false}>
-        <p className="settings-hint">Go uses the API key saved by OpenCode. Connect OpenCode Go with <code>opencode auth login</code>.</p>
-        <p className="settings-hint">Zen billing needs a console web session. Create <code>.config/tok-ching/opencode.credentials.json</code> under your home folder with <code>cookie</code> and <code>workspaceId</code> fields. Use only the <code>auth</code> or <code>__Host-auth</code> cookie from opencode.ai and the workspace ID from its URL.</p>
-        <p className="settings-hint">Keep this file private. Never paste cookies into chat or Git. Tok-Ching only reads it; renew expired cookies there, then use Refresh now from the tray.</p>
-      </Section>
-
-      <Section title="Check every">
+      <Section
+        title="Check every"
+        hint="How often each provider is asked for fresh figures."
+      >
         <select
           className="settings-select"
           aria-label="Check every"
@@ -157,44 +176,46 @@ export function SettingsPanel() {
         </select>
       </Section>
 
-      <Section title="Side">
-        <div className="settings-choices" role="radiogroup" aria-label="Dock edge">
-          {(["right", "left"] as RailSide[]).map((side) => (
-            <label key={side} className="settings-check">
-              <input
-                type="radio"
-                name="rail-side"
-                checked={settings.railSide === side}
-                onChange={() => update({ railSide: side })}
-              />
-              {side === "right" ? "Right edge" : "Left edge"}
-            </label>
-          ))}
-        </div>
-      </Section>
+      <Section title="Appearance" hint="Where the rail sits on screen.">
+        <Field label="Side">
+          <div className="settings-choices" role="radiogroup" aria-label="Side">
+            {(["left", "right"] as RailSide[]).map((side) => (
+              <label key={side} className="settings-check">
+                <input
+                  type="radio"
+                  name="rail-side"
+                  checked={settings.railSide === side}
+                  onChange={() => update({ railSide: side })}
+                />
+                {side === "right" ? "Right edge" : "Left edge"}
+              </label>
+            ))}
+          </div>
+        </Field>
 
-      <Section title="Vertical position">
-        <div className="settings-slider">
-          <input
-            type="range"
-            aria-label="Vertical position"
-            aria-valuetext={describeOffset(settings.verticalOffset)}
-            min={-MAX_VERTICAL_OFFSET}
-            max={MAX_VERTICAL_OFFSET}
-            step={10}
-            value={settings.verticalOffset}
-            onChange={(event) => update({ verticalOffset: Number(event.target.value) })}
-          />
-          <button
-            type="button"
-            className="settings-reset"
-            onClick={() => update({ verticalOffset: 0 })}
-            disabled={settings.verticalOffset === 0}
-          >
-            Centre
-          </button>
-        </div>
-        <p className="settings-hint">{describeOffset(settings.verticalOffset)}</p>
+        <Field label="Vertical position">
+          <div className="settings-slider">
+            <input
+              type="range"
+              aria-label="Vertical position"
+              aria-valuetext={describeOffset(settings.verticalOffset)}
+              min={-MAX_VERTICAL_OFFSET}
+              max={MAX_VERTICAL_OFFSET}
+              step={10}
+              value={settings.verticalOffset}
+              onChange={(event) => update({ verticalOffset: Number(event.target.value) })}
+            />
+            <button
+              type="button"
+              className="settings-reset"
+              onClick={() => update({ verticalOffset: 0 })}
+              disabled={settings.verticalOffset === 0}
+            >
+              Centre
+            </button>
+          </div>
+          <p className="settings-hint">{describeOffset(settings.verticalOffset)}</p>
+        </Field>
       </Section>
 
       <Section
@@ -235,7 +256,7 @@ export function SettingsPanel() {
         </div>
       </Section>
 
-      <Section title="Startup" defaultOpen={false}>
+      <Section title="Startup" hint="Whether the rail is up before you look for it.">
         <label className="settings-check">
           <input
             type="checkbox"

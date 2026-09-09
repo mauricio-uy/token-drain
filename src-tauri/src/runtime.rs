@@ -145,14 +145,13 @@ pub fn build_registry() -> Result<ProviderRegistry, UsageError> {
     Ok(ProviderRegistry::new(vec![
         AnyProvider::Claude(ClaudeProvider::new(client.clone())),
         AnyProvider::Codex(CodexProvider::new(client)),
-        AnyProvider::OpencodeGo(crate::providers::opencode::go::GoProvider::new(opencode_client.clone())),
-        AnyProvider::OpencodeZen(crate::providers::opencode::zen::ZenProvider::new(opencode_client)),
+        AnyProvider::OpencodeGo(crate::providers::opencode::go::GoProvider::new(opencode_client)),
     ]))
 }
 
 /// Display order of the providers, matching [`build_registry`].
 pub fn provider_order() -> Vec<ProviderId> {
-    vec![ProviderId::Claude, ProviderId::Codex, ProviderId::OpencodeGo, ProviderId::OpencodeZen]
+    vec![ProviderId::Claude, ProviderId::Codex, ProviderId::OpencodeGo]
 }
 
 /// Assemble the state and start the polling loop.
@@ -303,7 +302,7 @@ mod tests {
 
     impl TempDir {
         fn new(name: &str) -> Self {
-            let path = std::env::temp_dir().join(format!("tok-ching-runtime-{name}"));
+            let path = std::env::temp_dir().join(format!("token-drain-runtime-{name}"));
             let _ = std::fs::remove_dir_all(&path);
             std::fs::create_dir_all(&path).expect("should create temp dir");
             Self(path)
@@ -322,7 +321,6 @@ mod tests {
             session: UsageWindow::new(used_percent, SESSION_WINDOW_MINUTES, Some(1_788_580_800_000)),
             weekly: None,
             monthly: None,
-            billing: None,
             plan: Some("some_plan".to_owned()),
             fetched_at: 1_000,
         }

@@ -1,9 +1,7 @@
-//! Read-only OpenCode subscription and workspace billing integrations.
+//! Read-only OpenCode Go subscription integration.
 
 pub mod credentials;
 pub mod go;
-pub mod billing;
-pub mod zen;
 
 use std::time::Duration;
 use reqwest::Client;
@@ -14,7 +12,7 @@ pub fn build_client() -> Result<Client, UsageError> {
     Client::builder()
         .timeout(Duration::from_secs(10))
         .redirect(reqwest::redirect::Policy::none())
-        .user_agent(concat!("tok-ching/", env!("CARGO_PKG_VERSION")))
+        .user_agent(concat!("token-drain/", env!("CARGO_PKG_VERSION")))
         .build()
         .map_err(|_| UsageError::Network { reason: NetworkFailure::Request })
 }
@@ -52,7 +50,8 @@ mod tests {
                 let (mut socket, _) = listener.accept().unwrap();
                 socket.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
                 let mut buffer = [0; 2048];
-                socket.read(&mut buffer).unwrap();
+                let bytes_read = socket.read(&mut buffer).unwrap();
+                assert!(bytes_read > 0, "the client should send an HTTP request");
                 write!(socket, "HTTP/1.1 {status} Test\r\nContent-Length: {length}\r\nRetry-After: 60\r\nLocation: http://127.0.0.1:1/not-followed\r\nConnection: close\r\n\r\n").unwrap();
             });
             let response = build_client().unwrap().get(url).send().await.unwrap();
