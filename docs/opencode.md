@@ -12,9 +12,9 @@ The read-only request is `GET https://opencode.ai/zen/go/v1/usage` with bearer
 authentication. No model request or billable generation is made. Redirects are
 not followed, responses are capped at 2 MB, and request/body details are not logged.
 
-Go shows 5-hour, 7-day and monthly quotas. The two rings represent 5h and 7d;
-the additional `1m` value and hover card show the monthly quota. Monthly duration
-is nominally 30 days in the data model, but the reset datetime always comes from
+Go shows 5-hour, weekly and monthly quotas. Its badge shows only the 5h and 7d
+values; the hover card also shows the monthly quota. Monthly duration is
+nominally 30 days in the data model, but the reset datetime always comes from
 the provider, never from adding 30 days. Hover a reset label for its full local
 date and time. Missing/rejected credentials show a sign-in state, not zero usage.
 

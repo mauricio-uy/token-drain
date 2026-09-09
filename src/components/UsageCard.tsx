@@ -98,7 +98,7 @@ export function UsageCard({ view, now }: { view: ProviderView; now: number }) {
       {usage?.session && (
         <WindowRow label="5-hour usage" window={usage.session} now={now} />
       )}
-      {usage?.weekly && <WindowRow label="7-day usage" window={usage.weekly} now={now} />}
+      {usage?.weekly && <WindowRow label="Weekly usage" window={usage.weekly} now={now} />}
       {usage?.monthly && <WindowRow label="Monthly usage" window={usage.monthly} now={now} />}
 
       {usage?.billing && <>
