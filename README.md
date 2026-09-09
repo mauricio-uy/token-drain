@@ -88,9 +88,14 @@ can fully switch off. The page it renders is bundled locally and requests
 nothing. What has been done about it: the runtime is started with background
 networking, component update, domain reliability, hyperlink auditing, sync,
 crash reporting and client-side phishing detection all disabled, which measurably
-removed one of the two endpoints originally observed. One connection remains, and
-it could not be attributed to a named service — the runtime resolves hostnames
-itself, so nothing about it appears in the system DNS cache.
+removed one of the two endpoints originally observed. One connection remains, to
+an address registered to Microsoft, and it could not be attributed to a named
+service. Three things were tried: the system DNS cache stays empty because the
+runtime resolves hostnames itself; forcing it onto the operating system's
+resolver still yields no name; and pointing it at a local proxy yields no
+request, because this connection bypasses the runtime's proxy settings and goes
+out directly. Worth knowing if you route your browsing through a proxy and
+expect this to follow.
 
 ### Where tokens live at runtime
 
@@ -123,8 +128,10 @@ floor is one minute, including for a manual refresh. The point is a quota
 readout, not a live telemetry feed, and hammering an undocumented endpoint is
 how it gets closed.
 
-**Exclusive-fullscreen games** may cover the rail. Borderless fullscreen — how
-most modern games run — does not.
+**Exclusive-fullscreen games** cover the rail entirely, and it costs them
+nothing to do so: with the rail running, a fullscreen application keeps its mode
+and its frame rate. Borderless fullscreen — how most modern games run — does not
+cover it.
 
 ---
 
