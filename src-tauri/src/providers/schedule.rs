@@ -93,7 +93,9 @@ impl RefreshSchedule {
     }
 
     fn backoff(&self) -> Duration {
-        let factor = 1u32.checked_shl(self.consecutive_failures).unwrap_or(u32::MAX);
+        let factor = 1u32
+            .checked_shl(self.consecutive_failures)
+            .unwrap_or(u32::MAX);
 
         self.interval
             .saturating_mul(factor)

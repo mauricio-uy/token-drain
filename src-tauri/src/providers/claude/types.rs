@@ -138,7 +138,9 @@ mod tests {
         };
 
         assert_eq!(
-            map_window(Some(&raw), SESSION_WINDOW_MINUTES).unwrap().used_percent,
+            map_window(Some(&raw), SESSION_WINDOW_MINUTES)
+                .unwrap()
+                .used_percent,
             42.0
         );
     }
@@ -149,7 +151,9 @@ mod tests {
             serde_json::from_str(r#"{"used_percentage": 64.5}"#).expect("should parse");
 
         assert_eq!(
-            map_window(Some(&raw), SESSION_WINDOW_MINUTES).unwrap().used_percent,
+            map_window(Some(&raw), SESSION_WINDOW_MINUTES)
+                .unwrap()
+                .used_percent,
             64.5
         );
     }
@@ -163,7 +167,9 @@ mod tests {
         };
 
         assert_eq!(
-            map_window(Some(&raw), SESSION_WINDOW_MINUTES).unwrap().used_percent,
+            map_window(Some(&raw), SESSION_WINDOW_MINUTES)
+                .unwrap()
+                .used_percent,
             30.0
         );
     }
@@ -174,7 +180,9 @@ mod tests {
             serde_json::from_str(r#"{"utilization": 104.2}"#).expect("should parse");
 
         assert_eq!(
-            map_window(Some(&raw), SESSION_WINDOW_MINUTES).unwrap().used_percent,
+            map_window(Some(&raw), SESSION_WINDOW_MINUTES)
+                .unwrap()
+                .used_percent,
             100.0
         );
     }

@@ -171,7 +171,10 @@ mod tests {
 
         assert!(matches!(
             parse_credentials(raw, &fixture_path()),
-            Err(CredentialError::MissingField { field: "access token", .. })
+            Err(CredentialError::MissingField {
+                field: "access token",
+                ..
+            })
         ));
     }
 
@@ -181,7 +184,10 @@ mod tests {
 
         assert!(matches!(
             parse_credentials(raw, &fixture_path()),
-            Err(CredentialError::MissingField { field: "claudeAiOauth block", .. })
+            Err(CredentialError::MissingField {
+                field: "claudeAiOauth block",
+                ..
+            })
         ));
     }
 
@@ -226,7 +232,10 @@ mod tests {
         let after = std::fs::metadata(&path).expect("metadata").modified().ok();
         std::fs::remove_file(&path).ok();
 
-        assert_eq!(after_content, original, "the credentials file was rewritten");
+        assert_eq!(
+            after_content, original,
+            "the credentials file was rewritten"
+        );
         assert_eq!(before, after, "the credentials file was touched");
     }
 

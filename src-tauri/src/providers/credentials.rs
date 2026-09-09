@@ -42,10 +42,7 @@ pub enum CredentialError {
     /// A structurally valid file that does not carry what we need. `field`
     /// names the missing piece so the message stays actionable.
     #[error("credentials file at {path} has no {field}")]
-    MissingField {
-        path: PathBuf,
-        field: &'static str,
-    },
+    MissingField { path: PathBuf, field: &'static str },
 }
 
 /// Read and deserialize a credentials file.

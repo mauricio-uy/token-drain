@@ -48,6 +48,14 @@ ask you for credentials, and it never creates any of its own.
 |---|---|
 | `%USERPROFILE%\.claude\.credentials.json` | Claude access token |
 | `%USERPROFILE%\.codex\auth.json` (or `%CODEX_HOME%\auth.json`) | Codex access token and account id |
+| `%XDG_DATA_HOME%\opencode\auth.json` | OpenCode Go API credential when `XDG_DATA_HOME` is non-empty and absolute |
+| `%USERPROFILE%\.local\share\opencode\auth.json` | OpenCode Go API credential fallback when `XDG_DATA_HOME` is unset, empty, or not absolute |
+
+For OpenCode Go, an `OPENCODE_AUTH_CONTENT` environment variable whose value is
+not empty after trimming whitespace takes precedence over both files and
+supplies the JSON credential in memory. The JSON must contain an `opencode-go`
+entry with `type` set to `api` and a non-empty `key`; the app accepts it only as
+a bearer credential and never writes it back.
 
 **These files are read only.** The app never writes to them. That is a
 deliberate choice rather than an oversight: they belong to the CLIs, which
@@ -75,17 +83,16 @@ memory that does not survive a reboot.
 |---|---|
 | `api.anthropic.com` | Claude usage |
 | `chatgpt.com` | Codex usage |
+| `opencode.ai` | OpenCode Go usage |
 | `github.com` | Optional signed-update metadata and release downloads, only when automatic updates are enabled |
 | `objects.githubusercontent.com` | GitHub's release-asset host for the optional signed update download |
 
-With automatic updates disabled, the app itself contacts only the two provider
-hosts. If you explicitly enable automatic updates in **Settings → Updates**, the
-native updater also contacts GitHub Releases at startup. It accepts and installs
-only an artifact whose signature matches Token Drain's embedded public release
-key. The app performs no telemetry, analytics, or crash reporting. This was
-verified rather than assumed: a release build was run with every TCP connection
-owned by its process sampled and checked against the addresses those two provider
-hostnames resolve to.
+With automatic updates disabled, the app itself contacts only the three provider
+hosts listed above. If you explicitly enable automatic updates in **Settings →
+Updates**, the native updater also contacts GitHub Releases at startup. It
+accepts and installs only an artifact whose signature matches Token Drain's
+embedded public release key. The app performs no telemetry, analytics, or crash
+reporting.
 
 One honest caveat. The app hosts Microsoft's **WebView2** runtime to draw its
 interface, and that runtime opens its own HTTPS connections to Microsoft. It is
@@ -156,10 +163,20 @@ cover it.
 npm install         # install frontend dependencies
 npm run tauri dev   # run the app in development
 npm run build       # build the frontend only
-npm run tauri build # produce installers
+npm run test:frontend # run the frontend test suite
 npm run check:version # ensure release manifests agree
-cargo test          # run the Rust suite, from src-tauri/
+npm run tauri build # produce installers
+cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+cargo test --manifest-path src-tauri/Cargo.toml --locked
+cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features --locked -- -D warnings
+npm run tauri build -- --no-bundle # verify the native build without installers
 ```
+
+The frontend tests, TypeScript/Vite production build, Rust formatting check,
+locked Rust tests, warnings-denied Clippy check, and no-bundle native build are
+the local quality checks for a release. Run them before publishing; the
+repository workflows define the same checks but are not a substitute for
+reviewing the result of a particular run.
 
 The first Rust build compiles the full dependency tree and takes several
 minutes. Subsequent builds are incremental.
@@ -189,8 +206,11 @@ cargo test --test live_usage -- --ignored --nocapture
 3. Move the user-visible entries from `[Unreleased]` in
    [`CHANGELOG.md`](CHANGELOG.md) into a dated release section using the
    `YYYY-MM-DD` format.
-4. Run `npm run build`, then `npm run tauri build` to produce the installers.
-5. Test the generated NSIS installer before publishing it. The build must have
+4. Run the local quality checks above, including `npm run test:frontend`,
+   `npm run build`, the locked Rust tests, formatting, Clippy, and the
+   no-bundle native build.
+5. Run `npm run tauri build` to produce the installers, then test the generated
+   NSIS installer before publishing it. The build must have
    `TAURI_SIGNING_PRIVATE_KEY_PATH` set to the local private-key path and
    `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` set in its environment; neither value
    belongs in a repository file.
@@ -198,9 +218,14 @@ cargo test --test live_usage -- --ignored --nocapture
    `TAURI_SIGNING_PRIVATE_KEY` (the complete private-key file) and
    `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. Keep both secret; the public key in
    `src-tauri/tauri.conf.json` is intentionally safe to commit.
-7. Push a tag named `v<version>`. The release workflow checks that the tag and
-   manifests agree, signs the NSIS updater artifact, and publishes it with
-   `latest.json`. It selects the NSIS installer for Windows updates.
+7. Push a tag named `v<version>`. The release workflow is configured to check
+   that the tag and manifests agree, then publish the NSIS updater artifact with
+   `latest.json` when the required secrets are available. It selects the NSIS
+   installer for Windows updates; inspect the workflow result before announcing
+   a release.
+8. Review the [security policy](SECURITY.md) before publishing. It documents
+   supported versions, report scope, and responsible reporting; GitHub Private
+   Vulnerability Reporting is not assumed to be enabled.
 
 ### Automatic updates
 

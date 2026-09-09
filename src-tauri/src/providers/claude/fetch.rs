@@ -12,9 +12,7 @@ use reqwest::Client;
 
 use crate::providers::claude::types::{map_window, ClaudeUsageResponse};
 use crate::providers::error::UsageError;
-use crate::providers::http::{
-    classify_status, classify_transport_error, retry_after_header,
-};
+use crate::providers::http::{classify_status, classify_transport_error, retry_after_header};
 use crate::providers::usage::{
     ProviderId, ProviderUsage, SESSION_WINDOW_MINUTES, WEEKLY_WINDOW_MINUTES,
 };

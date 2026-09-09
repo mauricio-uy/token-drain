@@ -364,7 +364,12 @@ mod tests {
         // long as the quota stays high, and gets muted.
         let mut tracker = ThresholdTracker::new();
 
-        assert_eq!(tracker.observe(&usage(81.0, Some(PERIOD)), &THRESHOLDS).len(), 1);
+        assert_eq!(
+            tracker
+                .observe(&usage(81.0, Some(PERIOD)), &THRESHOLDS)
+                .len(),
+            1
+        );
 
         for _ in 0..5 {
             assert!(tracker
@@ -418,7 +423,12 @@ mod tests {
         // long as the quota stayed high.
         let mut tracker = ThresholdTracker::new();
 
-        assert_eq!(tracker.observe(&usage(81.0, Some(PERIOD)), &THRESHOLDS).len(), 1);
+        assert_eq!(
+            tracker
+                .observe(&usage(81.0, Some(PERIOD)), &THRESHOLDS)
+                .len(),
+            1
+        );
 
         for poll in 1..=20 {
             let drifted = PERIOD + poll * 900;
@@ -530,7 +540,12 @@ mod tests {
         let dir = TempDir::new("restart");
 
         let mut tracker = ThresholdTracker::open(&dir.0);
-        assert_eq!(tracker.observe(&usage(81.0, Some(PERIOD)), &THRESHOLDS).len(), 1);
+        assert_eq!(
+            tracker
+                .observe(&usage(81.0, Some(PERIOD)), &THRESHOLDS)
+                .len(),
+            1
+        );
 
         let mut restarted = ThresholdTracker::open(&dir.0);
 
@@ -563,7 +578,12 @@ mod tests {
 
         let mut tracker = ThresholdTracker::open(&dir.0);
 
-        assert_eq!(tracker.observe(&usage(81.0, Some(PERIOD)), &THRESHOLDS).len(), 1);
+        assert_eq!(
+            tracker
+                .observe(&usage(81.0, Some(PERIOD)), &THRESHOLDS)
+                .len(),
+            1
+        );
     }
 
     #[test]

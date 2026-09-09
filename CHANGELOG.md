@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 - A monochrome application mark, edge reveal, independent usage rings, and a
   floating settings shortcut.
 - An opt-in automatic updater for signed GitHub Releases.
+- CI and release verification workflows for manifest and tag alignment,
+  frontend and Rust quality checks, and the native Tauri build.
+- Weekly dependency update monitoring for npm, Cargo, and GitHub Actions.
 
 ### Changed
 
@@ -22,6 +25,10 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
   application surface.
 - Simplified OpenCode Go's compact badge while retaining its monthly quota in
   the hover card.
+- Restricted the bundled frontend with a local-resource CSP and limited native
+  capabilities to the permissions used by the rail and settings windows.
+- Documented OpenCode Go's read-only credential files, in-memory
+  `OPENCODE_AUTH_CONTENT` override, and credential handling boundary.
 
 ### Fixed
 
@@ -32,6 +39,13 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 ### Removed
 
 - OpenCode Zen workspace billing support and its local web-session credentials.
+
+### Security
+
+- Added a security policy covering supported versions, credential handling,
+  updater and release-process issues, and responsible reporting. The policy
+  does not claim that GitHub Private Vulnerability Reporting is currently
+  enabled.
 
 ## [0.1.0] - 2026-09-05
 

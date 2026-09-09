@@ -173,7 +173,11 @@ mod tests {
     fn usage(provider: ProviderId, used_percent: f64, fetched_at: i64) -> ProviderUsage {
         ProviderUsage {
             provider,
-            session: UsageWindow::new(used_percent, SESSION_WINDOW_MINUTES, Some(1_788_580_800_000)),
+            session: UsageWindow::new(
+                used_percent,
+                SESSION_WINDOW_MINUTES,
+                Some(1_788_580_800_000),
+            ),
             weekly: None,
             monthly: None,
             plan: Some("some_plan".to_owned()),
@@ -207,7 +211,9 @@ mod tests {
         let dir = TempDir::new("merge");
 
         let mut cache = UsageCache::open(dir.path());
-        cache.record(usage(ProviderId::Claude, 55.0, 1_000)).unwrap();
+        cache
+            .record(usage(ProviderId::Claude, 55.0, 1_000))
+            .unwrap();
         cache.record(usage(ProviderId::Codex, 48.0, 2_000)).unwrap();
         drop(cache);
 
@@ -223,11 +229,23 @@ mod tests {
         let reopened = UsageCache::open(dir.path());
 
         assert_eq!(
-            reopened.get(ProviderId::Claude).unwrap().session.as_ref().unwrap().used_percent,
+            reopened
+                .get(ProviderId::Claude)
+                .unwrap()
+                .session
+                .as_ref()
+                .unwrap()
+                .used_percent,
             60.0
         );
         assert_eq!(
-            reopened.get(ProviderId::Codex).unwrap().session.as_ref().unwrap().used_percent,
+            reopened
+                .get(ProviderId::Codex)
+                .unwrap()
+                .session
+                .as_ref()
+                .unwrap()
+                .used_percent,
             48.0
         );
     }
@@ -239,7 +257,9 @@ mod tests {
         let dir = TempDir::new("failure");
 
         let mut cache = UsageCache::open(dir.path());
-        cache.record(usage(ProviderId::Claude, 55.0, 1_000)).unwrap();
+        cache
+            .record(usage(ProviderId::Claude, 55.0, 1_000))
+            .unwrap();
 
         cache
             .record_batch(&[ProviderFetch {
@@ -252,7 +272,13 @@ mod tests {
         let reopened = UsageCache::open(dir.path());
 
         assert_eq!(
-            reopened.get(ProviderId::Claude).unwrap().session.as_ref().unwrap().used_percent,
+            reopened
+                .get(ProviderId::Claude)
+                .unwrap()
+                .session
+                .as_ref()
+                .unwrap()
+                .used_percent,
             55.0
         );
     }
@@ -356,7 +382,9 @@ mod tests {
         let dir = TempDir::new("s1");
 
         let mut cache = UsageCache::open(dir.path());
-        cache.record(usage(ProviderId::Claude, 55.0, 1_000)).unwrap();
+        cache
+            .record(usage(ProviderId::Claude, 55.0, 1_000))
+            .unwrap();
 
         let written = fs::read_to_string(dir.path().join(CACHE_FILE_NAME)).unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&written).unwrap();
@@ -367,7 +395,14 @@ mod tests {
 
         assert_eq!(
             keys,
-            ["fetchedAt", "monthly", "plan", "provider", "session", "weekly"],
+            [
+                "fetchedAt",
+                "monthly",
+                "plan",
+                "provider",
+                "session",
+                "weekly"
+            ],
             "the cached shape changed; confirm no credential material was added"
         );
     }

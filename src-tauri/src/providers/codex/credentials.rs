@@ -226,7 +226,10 @@ mod tests {
         let after = std::fs::metadata(&path).expect("metadata").modified().ok();
         std::fs::remove_file(&path).ok();
 
-        assert_eq!(after_content, original, "the credentials file was rewritten");
+        assert_eq!(
+            after_content, original,
+            "the credentials file was rewritten"
+        );
         assert_eq!(before, after, "the credentials file was touched");
     }
 
@@ -251,6 +254,8 @@ mod tests {
         let path = default_credentials_path().expect("should resolve");
 
         assert!(path.ends_with("auth.json"));
-        assert!(path.parent().unwrap().ends_with(".codex") || std::env::var(CODEX_HOME_VAR).is_ok());
+        assert!(
+            path.parent().unwrap().ends_with(".codex") || std::env::var(CODEX_HOME_VAR).is_ok()
+        );
     }
 }

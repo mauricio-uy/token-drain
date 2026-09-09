@@ -3,10 +3,10 @@
 pub mod credentials;
 pub mod go;
 
-use std::time::Duration;
-use reqwest::Client;
 use crate::providers::error::{NetworkFailure, UsageError};
 use crate::providers::http::{classify_status, classify_transport_error, retry_after_header};
+use reqwest::Client;
+use std::time::Duration;
 
 pub fn build_client() -> Result<Client, UsageError> {
     Client::builder()
@@ -14,23 +14,36 @@ pub fn build_client() -> Result<Client, UsageError> {
         .redirect(reqwest::redirect::Policy::none())
         .user_agent(concat!("token-drain/", env!("CARGO_PKG_VERSION")))
         .build()
-        .map_err(|_| UsageError::Network { reason: NetworkFailure::Request })
+        .map_err(|_| UsageError::Network {
+            reason: NetworkFailure::Request,
+        })
 }
 
 /// Bound response memory and discard all transport detail before returning errors.
 pub(crate) async fn read_response(mut response: reqwest::Response) -> Result<Vec<u8>, UsageError> {
     let status = response.status().as_u16();
-    if (300..400).contains(&status) { return Err(UsageError::Unauthorized); }
-    if let Some(error) = classify_status(status, retry_after_header(&response).as_deref(), chrono::Utc::now().timestamp_millis()) {
+    if (300..400).contains(&status) {
+        return Err(UsageError::Unauthorized);
+    }
+    if let Some(error) = classify_status(
+        status,
+        retry_after_header(&response).as_deref(),
+        chrono::Utc::now().timestamp_millis(),
+    ) {
         return Err(error);
     }
     const MAX_BODY: usize = 2_000_000;
-    if response.content_length().is_some_and(|size| size > MAX_BODY as u64) {
+    if response
+        .content_length()
+        .is_some_and(|size| size > MAX_BODY as u64)
+    {
         return Err(UsageError::Parse);
     }
     let mut body = Vec::new();
     while let Some(chunk) = response.chunk().await.map_err(classify_transport_error)? {
-        if body.len().saturating_add(chunk.len()) > MAX_BODY { return Err(UsageError::Parse); }
+        if body.len().saturating_add(chunk.len()) > MAX_BODY {
+            return Err(UsageError::Parse);
+        }
         body.extend_from_slice(&chunk);
     }
     Ok(body)
@@ -43,12 +56,21 @@ mod tests {
 
     #[tokio::test]
     async fn http_failures_and_redirects_are_bounded_and_classified() {
-        for (status, length) in [(401, 0), (403, 0), (429, 0), (500, 0), (302, 0), (200, 2_000_001)] {
+        for (status, length) in [
+            (401, 0),
+            (403, 0),
+            (429, 0),
+            (500, 0),
+            (302, 0),
+            (200, 2_000_001),
+        ] {
             let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
             let url = format!("http://{}", listener.local_addr().unwrap());
             let server = std::thread::spawn(move || {
                 let (mut socket, _) = listener.accept().unwrap();
-                socket.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
+                socket
+                    .set_read_timeout(Some(Duration::from_secs(3)))
+                    .unwrap();
                 let mut buffer = [0; 2048];
                 let bytes_read = socket.read(&mut buffer).unwrap();
                 assert!(bytes_read > 0, "the client should send an HTTP request");
@@ -59,9 +81,16 @@ mod tests {
             server.join().unwrap();
             match status {
                 401 | 302 => assert!(matches!(error, UsageError::Unauthorized)),
-                429 => assert!(matches!(error, UsageError::RateLimited { retry_after_ms: Some(60000) })),
+                429 => assert!(matches!(
+                    error,
+                    UsageError::RateLimited {
+                        retry_after_ms: Some(60000)
+                    }
+                )),
                 200 => assert!(matches!(error, UsageError::Parse)),
-                _ => assert!(matches!(error, UsageError::Server { status: code } if code == status)),
+                _ => {
+                    assert!(matches!(error, UsageError::Server { status: code } if code == status))
+                }
             }
         }
     }

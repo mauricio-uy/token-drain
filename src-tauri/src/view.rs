@@ -214,7 +214,16 @@ mod tests {
         let view = build_view(ProviderId::Claude, None, Some(&cached));
 
         assert_eq!(view.state, BadgeState::Stale);
-        assert_eq!(view.usage.as_ref().unwrap().session.as_ref().unwrap().used_percent, 55.0);
+        assert_eq!(
+            view.usage
+                .as_ref()
+                .unwrap()
+                .session
+                .as_ref()
+                .unwrap()
+                .used_percent,
+            55.0
+        );
         assert!(view.remediation.is_none());
     }
 
@@ -224,7 +233,16 @@ mod tests {
         let view = build_view(ProviderId::Claude, Some(&live), None);
 
         assert_eq!(view.state, BadgeState::Ok);
-        assert_eq!(view.usage.as_ref().unwrap().session.as_ref().unwrap().used_percent, 73.0);
+        assert_eq!(
+            view.usage
+                .as_ref()
+                .unwrap()
+                .session
+                .as_ref()
+                .unwrap()
+                .used_percent,
+            73.0
+        );
         assert!(view.remediation.is_none());
     }
 
@@ -267,10 +285,12 @@ mod tests {
     fn an_unreadable_credentials_file_is_error_not_reauth() {
         // Why: signing in rewrites the same file to the same place. Sending the
         // user to do that would waste their time on a problem it cannot fix.
-        let failed = Err(UsageError::MissingCredentials(CredentialError::Unreadable {
-            path: PathBuf::from("nowhere"),
-            kind: std::io::ErrorKind::PermissionDenied,
-        }));
+        let failed = Err(UsageError::MissingCredentials(
+            CredentialError::Unreadable {
+                path: PathBuf::from("nowhere"),
+                kind: std::io::ErrorKind::PermissionDenied,
+            },
+        ));
         let view = build_view(ProviderId::Claude, Some(&failed), None);
 
         assert_eq!(view.state, BadgeState::Error);
@@ -323,7 +343,13 @@ mod tests {
 
         assert!(view.usage.is_none());
         assert_eq!(
-            view.last_known.as_ref().unwrap().session.as_ref().unwrap().used_percent,
+            view.last_known
+                .as_ref()
+                .unwrap()
+                .session
+                .as_ref()
+                .unwrap()
+                .used_percent,
             55.0
         );
         assert_eq!(view.last_known.as_ref().unwrap().fetched_at, 1_000);
@@ -334,12 +360,20 @@ mod tests {
         for error in all_errors() {
             let failed = Err(error);
             let view = build_view(ProviderId::Claude, Some(&failed), None);
-            assert!(view.remediation.is_some(), "{:?} had no guidance", view.state);
+            assert!(
+                view.remediation.is_some(),
+                "{:?} had no guidance",
+                view.state
+            );
         }
 
         let live = Ok(usage(10.0));
-        assert!(build_view(ProviderId::Claude, Some(&live), None).remediation.is_none());
-        assert!(build_view(ProviderId::Claude, None, None).remediation.is_none());
+        assert!(build_view(ProviderId::Claude, Some(&live), None)
+            .remediation
+            .is_none());
+        assert!(build_view(ProviderId::Claude, None, None)
+            .remediation
+            .is_none());
     }
 
     #[test]

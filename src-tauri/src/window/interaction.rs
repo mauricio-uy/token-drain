@@ -67,10 +67,7 @@ impl InteractiveRegions {
     }
 
     pub fn snapshot(&self) -> Vec<LogicalRect> {
-        self.0
-            .lock()
-            .map(|guard| guard.clone())
-            .unwrap_or_default()
+        self.0.lock().map(|guard| guard.clone()).unwrap_or_default()
     }
 }
 
@@ -198,7 +195,12 @@ mod tests {
 
     #[test]
     fn a_cursor_outside_the_window_entirely_does_not() {
-        assert!(!cursor_wants_the_window(&[rail()], (200.0, 200.0), ORIGIN, 1.0));
+        assert!(!cursor_wants_the_window(
+            &[rail()],
+            (200.0, 200.0),
+            ORIGIN,
+            1.0
+        ));
     }
 
     #[test]
@@ -285,8 +287,18 @@ mod tests {
     fn a_nonsense_scale_factor_is_not_trusted() {
         // Guards a division by zero turning into an infinite coordinate, which
         // would silently make the whole window interactive or none of it.
-        assert!(!cursor_wants_the_window(&[rail()], (1860.0, 456.0), ORIGIN, 0.0));
-        assert!(!cursor_wants_the_window(&[rail()], (1860.0, 456.0), ORIGIN, -1.0));
+        assert!(!cursor_wants_the_window(
+            &[rail()],
+            (1860.0, 456.0),
+            ORIGIN,
+            0.0
+        ));
+        assert!(!cursor_wants_the_window(
+            &[rail()],
+            (1860.0, 456.0),
+            ORIGIN,
+            -1.0
+        ));
     }
 
     #[test]

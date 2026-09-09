@@ -119,11 +119,15 @@ mod tests {
     fn snapshots_with_optional_monthly_windows_round_trip() {
         let mut usage: ProviderUsage = serde_json::from_str(
             r#"{"provider":"claude","session":null,"weekly":null,"plan":null,"fetchedAt":100}"#,
-        ).unwrap();
+        )
+        .unwrap();
         assert!(usage.monthly.is_none());
         usage.monthly = UsageWindow::new(42.0, MONTHLY_WINDOW_MINUTES, Some(123456789));
         let encoded = serde_json::to_string(&usage).unwrap();
-        assert_eq!(serde_json::from_str::<ProviderUsage>(&encoded).unwrap(), usage);
+        assert_eq!(
+            serde_json::from_str::<ProviderUsage>(&encoded).unwrap(),
+            usage
+        );
     }
 
     #[test]
@@ -131,11 +135,15 @@ mod tests {
         // Why: a provider returning 103% or -0.4 is not an error worth failing
         // the whole fetch over, but it must never reach a progress ring raw.
         assert_eq!(
-            UsageWindow::new(103.0, SESSION_WINDOW_MINUTES, None).unwrap().used_percent,
+            UsageWindow::new(103.0, SESSION_WINDOW_MINUTES, None)
+                .unwrap()
+                .used_percent,
             100.0
         );
         assert_eq!(
-            UsageWindow::new(-0.4, SESSION_WINDOW_MINUTES, None).unwrap().used_percent,
+            UsageWindow::new(-0.4, SESSION_WINDOW_MINUTES, None)
+                .unwrap()
+                .used_percent,
             0.0
         );
     }
@@ -143,7 +151,9 @@ mod tests {
     #[test]
     fn keeps_in_range_percentages_exact() {
         assert_eq!(
-            UsageWindow::new(73.5, SESSION_WINDOW_MINUTES, None).unwrap().used_percent,
+            UsageWindow::new(73.5, SESSION_WINDOW_MINUTES, None)
+                .unwrap()
+                .used_percent,
             73.5
         );
     }
@@ -156,7 +166,8 @@ mod tests {
 
     #[test]
     fn serializes_as_camel_case_for_the_frontend() {
-        let window = UsageWindow::new(73.0, WEEKLY_WINDOW_MINUTES, Some(1_788_580_800_000)).unwrap();
+        let window =
+            UsageWindow::new(73.0, WEEKLY_WINDOW_MINUTES, Some(1_788_580_800_000)).unwrap();
         let json = serde_json::to_string(&window).expect("should serialize");
 
         assert!(json.contains("\"usedPercent\":73.0"));

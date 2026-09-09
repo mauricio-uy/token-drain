@@ -182,12 +182,16 @@ pub(crate) mod tests {
     }
 
     pub enum StubOutcome {
-        Succeeds { used_percent: f64 },
+        Succeeds {
+            used_percent: f64,
+        },
         Fails,
         /// Sleeps past any sane timeout, standing in for a wedged provider.
         Hangs,
         Panics,
-        RateLimited { retry_after_ms: Option<i64> },
+        RateLimited {
+            retry_after_ms: Option<i64>,
+        },
     }
 
     impl StubProvider {
@@ -237,16 +241,16 @@ pub(crate) mod tests {
         // The requirement this module exists for.
         let registry = registry(vec![
             stub(ProviderId::Claude, StubOutcome::Fails),
-            stub(ProviderId::Codex, StubOutcome::Succeeds { used_percent: 48.0 }),
+            stub(
+                ProviderId::Codex,
+                StubOutcome::Succeeds { used_percent: 48.0 },
+            ),
         ]);
 
         let results = registry.fetch_all().await;
 
         assert_eq!(results.len(), 2);
-        assert!(matches!(
-            results[0].result,
-            Err(UsageError::Unauthorized)
-        ));
+        assert!(matches!(results[0].result, Err(UsageError::Unauthorized)));
         assert_eq!(
             results[1]
                 .result
@@ -267,7 +271,10 @@ pub(crate) mod tests {
         // one would be reported as timed out too.
         let registry = registry(vec![
             stub(ProviderId::Claude, StubOutcome::Hangs),
-            stub(ProviderId::Codex, StubOutcome::Succeeds { used_percent: 12.0 }),
+            stub(
+                ProviderId::Codex,
+                StubOutcome::Succeeds { used_percent: 12.0 },
+            ),
         ]);
 
         let results = registry.fetch_all().await;
@@ -285,7 +292,10 @@ pub(crate) mod tests {
     async fn a_panicking_provider_does_not_take_the_others_down() {
         let registry = registry(vec![
             stub(ProviderId::Claude, StubOutcome::Panics),
-            stub(ProviderId::Codex, StubOutcome::Succeeds { used_percent: 5.0 }),
+            stub(
+                ProviderId::Codex,
+                StubOutcome::Succeeds { used_percent: 5.0 },
+            ),
         ]);
 
         let results = registry.fetch_all().await;
@@ -301,8 +311,14 @@ pub(crate) mod tests {
         // Codex is listed first and answers slowly; the order must still be the
         // configured one, or the rail's badges would swap places between polls.
         let registry = registry(vec![
-            stub(ProviderId::Codex, StubOutcome::Succeeds { used_percent: 1.0 }),
-            stub(ProviderId::Claude, StubOutcome::Succeeds { used_percent: 2.0 }),
+            stub(
+                ProviderId::Codex,
+                StubOutcome::Succeeds { used_percent: 1.0 },
+            ),
+            stub(
+                ProviderId::Claude,
+                StubOutcome::Succeeds { used_percent: 2.0 },
+            ),
         ]);
 
         let results = registry.fetch_all().await;

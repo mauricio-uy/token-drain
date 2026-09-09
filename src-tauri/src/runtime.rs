@@ -145,13 +145,19 @@ pub fn build_registry() -> Result<ProviderRegistry, UsageError> {
     Ok(ProviderRegistry::new(vec![
         AnyProvider::Claude(ClaudeProvider::new(client.clone())),
         AnyProvider::Codex(CodexProvider::new(client)),
-        AnyProvider::OpencodeGo(crate::providers::opencode::go::GoProvider::new(opencode_client)),
+        AnyProvider::OpencodeGo(crate::providers::opencode::go::GoProvider::new(
+            opencode_client,
+        )),
     ]))
 }
 
 /// Display order of the providers, matching [`build_registry`].
 pub fn provider_order() -> Vec<ProviderId> {
-    vec![ProviderId::Claude, ProviderId::Codex, ProviderId::OpencodeGo]
+    vec![
+        ProviderId::Claude,
+        ProviderId::Codex,
+        ProviderId::OpencodeGo,
+    ]
 }
 
 /// Assemble the state and start the polling loop.
@@ -198,7 +204,6 @@ where
     let alert_settings = Arc::clone(&consumer_state.settings);
     let mut tracker = ThresholdTracker::open(cache_directory);
     tauri::async_runtime::spawn(async move {
-
         while let Some(batch) = receiver.recv().await {
             // Alerts are decided from the batch, before it is folded in, so the
             // tracker sees each poll exactly once. Reading them back off the
@@ -274,9 +279,12 @@ pub fn set_settings(
     state: tauri::State<'_, Arc<UsageState>>,
     value: Settings,
 ) -> Result<Settings, String> {
-    let (previous, stored) = state.apply_settings(value).map_err(|error| error.to_string())?;
+    let (previous, stored) = state
+        .apply_settings(value)
+        .map_err(|error| error.to_string())?;
 
-    if previous.rail_side != stored.rail_side || previous.vertical_offset != stored.vertical_offset {
+    if previous.rail_side != stored.rail_side || previous.vertical_offset != stored.vertical_offset
+    {
         if let Some(rail) = tauri::Manager::get_webview_window(&app, crate::RAIL_WINDOW_LABEL) {
             crate::window::dock(&rail, &stored);
         }
@@ -318,7 +326,11 @@ mod tests {
     fn usage(provider: ProviderId, used_percent: f64) -> ProviderUsage {
         ProviderUsage {
             provider,
-            session: UsageWindow::new(used_percent, SESSION_WINDOW_MINUTES, Some(1_788_580_800_000)),
+            session: UsageWindow::new(
+                used_percent,
+                SESSION_WINDOW_MINUTES,
+                Some(1_788_580_800_000),
+            ),
             weekly: None,
             monthly: None,
             plan: Some("some_plan".to_owned()),
@@ -357,9 +369,15 @@ mod tests {
             notification_thresholds: std::collections::BTreeSet::from([50]),
             ..Settings::default()
         };
-        state.apply_settings(edited.clone()).expect("should save preferences");
+        state
+            .apply_settings(edited.clone())
+            .expect("should save preferences");
         assert_eq!(SettingsStore::open(&dir.0).get(), edited);
-        assert!(tokio::time::timeout(std::time::Duration::from_millis(1), notified).await.is_err());
+        assert!(
+            tokio::time::timeout(std::time::Duration::from_millis(1), notified)
+                .await
+                .is_err()
+        );
     }
 
     #[tokio::test(start_paused = true)]
@@ -367,7 +385,10 @@ mod tests {
         let dir = TempDir::new("polling-preferences");
         let state = state_in(&dir);
         for edited in [
-            Settings { poll_interval_seconds: 600, ..Settings::default() },
+            Settings {
+                poll_interval_seconds: 600,
+                ..Settings::default()
+            },
             Settings {
                 poll_interval_seconds: 600,
                 disabled_providers: std::collections::BTreeSet::from([ProviderId::Codex]),
@@ -377,8 +398,14 @@ mod tests {
             let notified = state.refresh_now.notified();
             tokio::pin!(notified);
             notified.as_mut().enable();
-            state.apply_settings(edited).expect("should save preferences");
-            assert!(tokio::time::timeout(std::time::Duration::from_millis(1), notified).await.is_ok());
+            state
+                .apply_settings(edited)
+                .expect("should save preferences");
+            assert!(
+                tokio::time::timeout(std::time::Duration::from_millis(1), notified)
+                    .await
+                    .is_ok()
+            );
         }
         assert_eq!(state.views().len(), provider_order().len() - 1);
         assert_eq!(state.views()[0].provider, ProviderId::Claude);
@@ -427,7 +454,14 @@ mod tests {
 
         assert_eq!(views[0].state, BadgeState::Ok);
         assert_eq!(
-            views[0].usage.as_ref().unwrap().session.as_ref().unwrap().used_percent,
+            views[0]
+                .usage
+                .as_ref()
+                .unwrap()
+                .session
+                .as_ref()
+                .unwrap()
+                .used_percent,
             55.0
         );
         assert_eq!(views[1].state, BadgeState::Reauth);
@@ -452,7 +486,14 @@ mod tests {
 
         assert_eq!(views[0].state, BadgeState::Stale);
         assert_eq!(
-            views[0].usage.as_ref().unwrap().session.as_ref().unwrap().used_percent,
+            views[0]
+                .usage
+                .as_ref()
+                .unwrap()
+                .session
+                .as_ref()
+                .unwrap()
+                .used_percent,
             55.0
         );
     }
@@ -474,9 +515,19 @@ mod tests {
         let views = state.views();
 
         assert_eq!(views[0].state, BadgeState::Reauth);
-        assert!(views[0].usage.is_none(), "a failure showed a live percentage");
+        assert!(
+            views[0].usage.is_none(),
+            "a failure showed a live percentage"
+        );
         assert_eq!(
-            views[0].last_known.as_ref().unwrap().session.as_ref().unwrap().used_percent,
+            views[0]
+                .last_known
+                .as_ref()
+                .unwrap()
+                .session
+                .as_ref()
+                .unwrap()
+                .used_percent,
             55.0
         );
     }
@@ -496,7 +547,13 @@ mod tests {
 
         let providers: Vec<_> = state.views().iter().map(|view| view.provider).collect();
 
-        assert_eq!(providers, provider_order().into_iter().filter(|id| *id != ProviderId::Codex).collect::<Vec<_>>());
+        assert_eq!(
+            providers,
+            provider_order()
+                .into_iter()
+                .filter(|id| *id != ProviderId::Codex)
+                .collect::<Vec<_>>()
+        );
     }
 
     #[test]

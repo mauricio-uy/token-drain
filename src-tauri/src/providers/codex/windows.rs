@@ -126,7 +126,9 @@ fn place(classified: &mut ClassifiedWindows, raw: Option<&CodexWindow>, slot: Sl
         return;
     };
 
-    let window_minutes = raw.window_minutes().unwrap_or_else(|| slot.default_minutes());
+    let window_minutes = raw
+        .window_minutes()
+        .unwrap_or_else(|| slot.default_minutes());
     let resets_at = crate::providers::timestamps::parse_reset_timestamp(raw.reset_at.as_ref());
 
     let window = UsageWindow::new(used_percent, window_minutes, resets_at);

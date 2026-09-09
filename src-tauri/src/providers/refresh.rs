@@ -245,11 +245,22 @@ mod tests {
         // Why: otherwise the widget shows nothing for the first interval after
         // launch, which reads as broken.
         let registry = Arc::new(ProviderRegistry::new(vec![
-            stub(ProviderId::Claude, StubOutcome::Succeeds { used_percent: 1.0 }),
-            stub(ProviderId::Codex, StubOutcome::Succeeds { used_percent: 2.0 }),
+            stub(
+                ProviderId::Claude,
+                StubOutcome::Succeeds { used_percent: 1.0 },
+            ),
+            stub(
+                ProviderId::Codex,
+                StubOutcome::Succeeds { used_percent: 2.0 },
+            ),
         ]));
         let (sender, mut receiver) = mpsc::channel(8);
-        let _task = spawn_refresh_loop(registry, Arc::new(config()), sender, Arc::new(Notify::new()));
+        let _task = spawn_refresh_loop(
+            registry,
+            Arc::new(config()),
+            sender,
+            Arc::new(Notify::new()),
+        );
 
         let batch = next_batch(&mut receiver).await;
 
@@ -266,7 +277,12 @@ mod tests {
             StubOutcome::Succeeds { used_percent: 1.0 },
         )]));
         let (sender, mut receiver) = mpsc::channel(8);
-        let _task = spawn_refresh_loop(registry, Arc::new(config()), sender, Arc::new(Notify::new()));
+        let _task = spawn_refresh_loop(
+            registry,
+            Arc::new(config()),
+            sender,
+            Arc::new(Notify::new()),
+        );
 
         next_batch(&mut receiver).await;
 
@@ -275,7 +291,10 @@ mod tests {
         assert!(receiver.try_recv().is_err(), "polled before it was due");
 
         tokio::time::advance(Duration::from_secs(2)).await;
-        assert_eq!(providers_in(&next_batch(&mut receiver).await), vec![ProviderId::Claude]);
+        assert_eq!(
+            providers_in(&next_batch(&mut receiver).await),
+            vec![ProviderId::Claude]
+        );
     }
 
     #[tokio::test(start_paused = true)]
@@ -284,10 +303,18 @@ mod tests {
         // hold the healthy provider back or drag the failing one forward.
         let registry = Arc::new(ProviderRegistry::new(vec![
             stub(ProviderId::Claude, StubOutcome::Fails),
-            stub(ProviderId::Codex, StubOutcome::Succeeds { used_percent: 2.0 }),
+            stub(
+                ProviderId::Codex,
+                StubOutcome::Succeeds { used_percent: 2.0 },
+            ),
         ]));
         let (sender, mut receiver) = mpsc::channel(8);
-        let _task = spawn_refresh_loop(registry, Arc::new(config()), sender, Arc::new(Notify::new()));
+        let _task = spawn_refresh_loop(
+            registry,
+            Arc::new(config()),
+            sender,
+            Arc::new(Notify::new()),
+        );
 
         assert_eq!(next_batch(&mut receiver).await.len(), 2);
 
@@ -314,7 +341,12 @@ mod tests {
                 .with_timeout(Duration::from_secs(1)),
         );
         let (sender, mut receiver) = mpsc::channel(8);
-        let _task = spawn_refresh_loop(registry, Arc::new(config()), sender, Arc::new(Notify::new()));
+        let _task = spawn_refresh_loop(
+            registry,
+            Arc::new(config()),
+            sender,
+            Arc::new(Notify::new()),
+        );
 
         let batch = next_batch(&mut receiver).await;
         assert!(matches!(batch[0].result, Err(UsageError::Network { .. })));
@@ -338,7 +370,12 @@ mod tests {
             },
         )]));
         let (sender, mut receiver) = mpsc::channel(8);
-        let _task = spawn_refresh_loop(registry, Arc::new(config()), sender, Arc::new(Notify::new()));
+        let _task = spawn_refresh_loop(
+            registry,
+            Arc::new(config()),
+            sender,
+            Arc::new(Notify::new()),
+        );
 
         next_batch(&mut receiver).await;
 
@@ -361,12 +398,20 @@ mod tests {
             },
         )]));
         let (sender, mut receiver) = mpsc::channel(8);
-        let _task = spawn_refresh_loop(registry, Arc::new(config()), sender, Arc::new(Notify::new()));
+        let _task = spawn_refresh_loop(
+            registry,
+            Arc::new(config()),
+            sender,
+            Arc::new(Notify::new()),
+        );
 
         next_batch(&mut receiver).await;
 
         tokio::time::advance(Duration::from_secs(890)).await;
-        assert!(receiver.try_recv().is_err(), "ignored the Retry-After delay");
+        assert!(
+            receiver.try_recv().is_err(),
+            "ignored the Retry-After delay"
+        );
 
         tokio::time::advance(Duration::from_secs(20)).await;
         assert_eq!(next_batch(&mut receiver).await.len(), 1);
@@ -379,12 +424,20 @@ mod tests {
             StubOutcome::Fails,
         )]));
         let (sender, mut receiver) = mpsc::channel(8);
-        let _task = spawn_refresh_loop(registry, Arc::new(config()), sender, Arc::new(Notify::new()));
+        let _task = spawn_refresh_loop(
+            registry,
+            Arc::new(config()),
+            sender,
+            Arc::new(Notify::new()),
+        );
 
         next_batch(&mut receiver).await;
 
         tokio::time::advance(MAX_BACKOFF - Duration::from_secs(5)).await;
-        assert!(receiver.try_recv().is_err(), "retried a permanent failure too soon");
+        assert!(
+            receiver.try_recv().is_err(),
+            "retried a permanent failure too soon"
+        );
 
         // But it is still retried eventually, so recovery after the user signs
         // back in is automatic.
@@ -466,7 +519,12 @@ mod tests {
             StubOutcome::Succeeds { used_percent: 1.0 },
         )]));
         let (sender, receiver) = mpsc::channel(8);
-        let task = spawn_refresh_loop(registry, Arc::new(config()), sender, Arc::new(Notify::new()));
+        let task = spawn_refresh_loop(
+            registry,
+            Arc::new(config()),
+            sender,
+            Arc::new(Notify::new()),
+        );
 
         drop(receiver);
         tokio::time::advance(INTERVAL * 2).await;
@@ -482,7 +540,12 @@ mod tests {
         let registry = Arc::new(ProviderRegistry::new(vec![]));
         let (sender, _receiver) = mpsc::channel(8);
 
-        let task = spawn_refresh_loop(registry, Arc::new(config()), sender, Arc::new(Notify::new()));
+        let task = spawn_refresh_loop(
+            registry,
+            Arc::new(config()),
+            sender,
+            Arc::new(Notify::new()),
+        );
 
         tokio::time::timeout(Duration::from_secs(1), task)
             .await
@@ -530,8 +593,14 @@ mod tests {
 
     fn two_healthy_providers() -> Arc<ProviderRegistry> {
         Arc::new(ProviderRegistry::new(vec![
-            stub(ProviderId::Claude, StubOutcome::Succeeds { used_percent: 1.0 }),
-            stub(ProviderId::Codex, StubOutcome::Succeeds { used_percent: 2.0 }),
+            stub(
+                ProviderId::Claude,
+                StubOutcome::Succeeds { used_percent: 1.0 },
+            ),
+            stub(
+                ProviderId::Codex,
+                StubOutcome::Succeeds { used_percent: 2.0 },
+            ),
         ]))
     }
 
@@ -589,7 +658,9 @@ mod tests {
         let batch = next_batch(&mut receiver).await;
 
         assert!(
-            batch.iter().any(|fetch| fetch.provider == ProviderId::Codex),
+            batch
+                .iter()
+                .any(|fetch| fetch.provider == ProviderId::Codex),
             "a re-enabled provider was not picked up until a restart"
         );
     }

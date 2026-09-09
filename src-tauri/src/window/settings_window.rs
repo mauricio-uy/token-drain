@@ -111,8 +111,7 @@ mod tests {
             match seen {
                 None => seen = Some(args),
                 Some(first) => assert_eq!(
-                    first,
-                    args,
+                    first, args,
                     "window {:?} declares different additionalBrowserArgs; \
                      WebView2 shares one browser process per user-data directory \
                      and rejects a webview created with a different command line",
