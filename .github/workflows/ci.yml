@@ -65,4 +65,4 @@ jobs:
         run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features --locked -- -D warnings
 
       - name: Verify native Tauri build without bundling
-        run: npm run tauri -- build --no-bundle --config '{"bundle":{"active":false,"createUpdaterArtifacts":false}}'
+        run: node node_modules/@tauri-apps/cli/tauri.js build --no-bundle --config '{"bundle":{"active":false,"createUpdaterArtifacts":false}}'
