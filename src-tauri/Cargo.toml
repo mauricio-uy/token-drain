@@ -27,7 +27,7 @@ serde_json = "1"
 tokio = { version = "1.53.1", features = ["rt-multi-thread", "macros", "time", "sync"] }
 chrono = { version = "0.4.45", default-features = false, features = ["clock", "std", "serde"] }
 thiserror = "2.0.20"
-dirs = "6.0.0"
+dirs = "7.0.0"
 reqwest = { version = "0.13.4", default-features = false, features = ["json", "rustls", "http2"] }
 tauri-plugin-autostart = "2.5.1"
 tauri-plugin-single-instance = "2.4.4"
