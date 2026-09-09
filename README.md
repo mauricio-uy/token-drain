@@ -1,4 +1,4 @@
-# tok-ching
+# Token Drain
 
 A Windows desktop widget that shows live usage and rate-limit status for AI
 subscriptions as a rail docked to the edge of the screen.
@@ -14,8 +14,8 @@ Claude and Codex are supported today.
 
 ## Install
 
-Download `tok-ching_<version>_x64-setup.exe` and run it. It installs for the
-current user into `%LOCALAPPDATA%\tok-ching` and needs no administrator rights.
+Download `Token Drain_<version>_x64-setup.exe` and run it. It installs for the
+current user into `%LOCALAPPDATA%\Token Drain` and needs no administrator rights.
 
 An `.msi` is also produced. It installs **per machine** and therefore requires
 administrator rights; prefer the `.exe` unless you specifically want a
@@ -32,7 +32,7 @@ you for credentials and cannot log you in.
 
 Uninstall from **Settings → Apps**, or run `uninstall.exe` in the install
 directory. That removes the program but **leaves your data** (see below); delete
-`%APPDATA%\dev.tokching.app` if you want it gone too.
+`%APPDATA%\dev.tokendrain.app` if you want it gone too.
 
 ---
 
@@ -60,9 +60,9 @@ When one expires, the badge says so and you sign in again with the CLI.
 
 | Path | Purpose |
 |---|---|
-| `%APPDATA%\dev.tokching.app\settings.json` | Your preferences |
-| `%APPDATA%\dev.tokching.app\usage-cache.json` | Last successful figures, so the rail is not empty at launch |
-| `%APPDATA%\dev.tokching.app\alerts.json` | Which thresholds have already been announced |
+| `%APPDATA%\dev.tokendrain.app\settings.json` | Your preferences |
+| `%APPDATA%\dev.tokendrain.app\usage-cache.json` | Last successful figures, so the rail is not empty at launch |
+| `%APPDATA%\dev.tokendrain.app\alerts.json` | Which thresholds have already been announced |
 | `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` | Only while *Launch at login* is on |
 
 None of these contains a token. If the app data directory cannot be resolved for
