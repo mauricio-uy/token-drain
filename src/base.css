@@ -43,3 +43,56 @@ img {
   -webkit-user-drag: none;
   user-select: none;
 }
+
+/*
+ * The settings window's chrome.
+ *
+ * `color-scheme` is the switch that tells the engine this document is dark, and
+ * it is what darkens the parts the stylesheet cannot reach on its own: the
+ * dropdown list a `<select>` opens, the focus rings the platform draws, and the
+ * scrollbar's default colours. It is set here rather than on `:root` because the
+ * rail is a transparent window, and a declared colour scheme gives its canvas an
+ * opaque background — a black rectangle over the desktop, which is precisely the
+ * artifact that surface exists to avoid.
+ *
+ * The scrollbar is then drawn outright. A dark platform scrollbar is still the
+ * chunky one, with stepper arrows and a filled track running the height of the
+ * window, and that reads as a browser inside the window rather than a panel. The
+ * replacement is a thumb and nothing else: the track is left transparent so the
+ * panel runs edge to edge, and the thumb is inset by a transparent border rather
+ * than by narrowing the scrollbar, which keeps the pointer target at full width
+ * while the visible bar stays thin.
+ *
+ * Both the root and its descendants are matched: the window's own scrollbar
+ * belongs to the document element, the ones inside it to whatever scrolls.
+ */
+[data-surface="settings"] {
+  color-scheme: dark;
+}
+
+[data-surface="settings"]::-webkit-scrollbar,
+[data-surface="settings"] *::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+[data-surface="settings"]::-webkit-scrollbar-track,
+[data-surface="settings"] *::-webkit-scrollbar-track,
+[data-surface="settings"]::-webkit-scrollbar-corner,
+[data-surface="settings"] *::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+[data-surface="settings"]::-webkit-scrollbar-thumb,
+[data-surface="settings"] *::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: var(--surface-line);
+  background-clip: content-box;
+}
+
+[data-surface="settings"]::-webkit-scrollbar-thumb:hover,
+[data-surface="settings"] *::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+  background-clip: content-box;
+}
