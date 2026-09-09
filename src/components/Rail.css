@@ -70,15 +70,26 @@
   outline-offset: -2px;
 }
 
-/* The padded area bridges the pointer path below the concave lower fillet. */
+/*
+ * Tucked into the hollow left by the concave lower fillet, rather than hanging
+ * below it: the fillet carves a quarter circle out of the corner nearest the
+ * screen edge, and the button sits inside that void, so it reads as part of the
+ * rail's silhouette instead of a detached dot. The padded area still bridges the
+ * pointer path across the gap.
+ *
+ * One inset drives both axes, so the gap above the button (to the rail's lower
+ * edge) and the gap beside it (to the screen edge) are the same distance. The
+ * button stays clear of the fillet's opaque corner as long as that inset is
+ * above `--rail-corner * (1 - 1 / sqrt(2))`, roughly 6.5px.
+ */
 .rail-settings-area {
+  --settings-inset: 12px;
   position: absolute;
   top: 100%;
-  right: 8px;
-  width: 64px;
-  padding-top: calc(var(--rail-corner) + 8px);
+  right: 0;
+  padding: var(--settings-inset) var(--settings-inset) 0;
   display: flex;
-  justify-content: center;
+  justify-content: flex-end;
 }
 
 .rail-settings-button {
@@ -131,7 +142,8 @@
 
 .rail-root[data-side="left"] .rail-settings-area {
   right: auto;
-  left: 8px;
+  left: 0;
+  justify-content: flex-start;
 }
 
 .rail-root[data-side="left"] .rail-settings-error {
