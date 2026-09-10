@@ -1,6 +1,7 @@
 import "./SettingsPanel.css";
 import { useId } from "react";
 import { ProviderLogo } from "./ProviderLogo";
+import { UpdateStatus } from "./UpdateStatus";
 import { useSettings, type RailSide, type Settings } from "../lib/settings";
 
 /**
@@ -270,7 +271,7 @@ export function SettingsPanel() {
 
       <Section
         title="Updates"
-        hint="Off by default. When enabled, the rail checks GitHub Releases when it starts."
+        hint="Check for updates now, or enable automatic updates at startup and every six hours."
       >
         <label className="settings-check">
           <input
@@ -284,6 +285,7 @@ export function SettingsPanel() {
           Updates are accepted only when their signature matches Token Drain's
           release key. Windows closes and restarts the app while installing.
         </p>
+        <UpdateStatus />
       </Section>
     </div>
   );

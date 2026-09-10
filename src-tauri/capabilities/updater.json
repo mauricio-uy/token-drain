@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "updater",
+  "description": "Only the rail owns native update checks and installation",
+  "windows": ["rail"],
+  "permissions": ["updater:default"]
+}

@@ -84,12 +84,13 @@ memory that does not survive a reboot.
 | `api.anthropic.com` | Claude usage |
 | `chatgpt.com` | Codex usage |
 | `opencode.ai` | OpenCode Go usage |
-| `github.com` | Optional signed-update metadata and release downloads, only when automatic updates are enabled |
-| `objects.githubusercontent.com` | GitHub's release-asset host for the optional signed update download |
+| `github.com` | Update metadata and downloads after a manual check or automatic-update opt-in |
+| `release-assets.githubusercontent.com`, `objects.githubusercontent.com` | GitHub's release-asset delivery hosts for updates |
 
-With automatic updates disabled, the app itself contacts only the three provider
-hosts listed above. If you explicitly enable automatic updates in **Settings →
-Updates**, the native updater also contacts GitHub Releases at startup. It
+Without a manual update request or automatic-update opt-in, the app itself
+contacts only the three provider hosts listed above. In **Settings → Updates**,
+you can request a manual check or enable automatic checks at startup and every
+six hours. The native updater contacts GitHub Releases. It
 accepts and installs only an artifact whose signature matches Token Drain's
 embedded public release key. The app performs no telemetry, analytics, or crash
 reporting.
@@ -211,28 +212,56 @@ cargo test --test live_usage -- --ignored --nocapture
    no-bundle native build.
 5. Run `npm run tauri build` to produce the installers, then test the generated
    NSIS installer before publishing it. The build must have
-   `TAURI_SIGNING_PRIVATE_KEY_PATH` set to the local private-key path and
+   `TAURI_SIGNING_PRIVATE_KEY` set to the local private-key path and
    `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` set in its environment; neither value
    belongs in a repository file.
 6. In GitHub Actions, create the repository secrets
    `TAURI_SIGNING_PRIVATE_KEY` (the complete private-key file) and
    `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. Keep both secret; the public key in
    `src-tauri/tauri.conf.json` is intentionally safe to commit.
-7. Push a tag named `v<version>`. The release workflow is configured to check
-   that the tag and manifests agree, then publish the NSIS updater artifact with
-   `latest.json` when the required secrets are available. It selects the NSIS
-   installer for Windows updates; inspect the workflow result before announcing
-   a release.
+7. Push a stable tag named `v<version>` from the verified release commit. The
+   workflow checks tag/version alignment and builds the NSIS installer in a
+   draft release. It downloads the uploaded assets and validates `latest.json`,
+   the installer, signature file and full cryptographic signature before publishing.
+   Failures leave a draft invisible to the updater. Fix the cause and rerun the
+   failed workflow; never move an already published tag or replace its assets.
+   The workflow deliberately rejects prerelease versions so they cannot reach
+   stable installations. Inspect the workflow before announcing a release.
+   Pushing `codex/verify-signed-release` runs the same build and validation but
+   leaves a uniquely named `verify-updater-<run-id>` draft unpublished. Use this
+   to verify signing secrets before the first production release.
 8. Review the [security policy](SECURITY.md) before publishing. It documents
    supported versions, report scope, and responsible reporting; GitHub Private
    Vulnerability Reporting is not assumed to be enabled.
 
 ### Automatic updates
 
-Automatic updates are off by default. Enable **Settings → Updates → Download
-and install updates automatically** to let the rail check the latest GitHub
-Release at startup. If a newer signed release is available, it is downloaded,
-Windows closes the app while the NSIS installer runs, and the app restarts.
+In **Settings → Updates**, use **Check for updates** to see whether a newer
+version is available, review its notes, and choose **Install and restart**.
+The installed version, last successful check, download progress and retryable
+errors are shown here. A failed check never means that the app is up to date.
+
+Automatic updates are off by default. Enable **Download and install updates
+automatically** to check at startup and every six hours, including retries after
+network failures. This explicitly allows installation and an app restart.
+Turning it off during a check or download prevents the subsequent automatic
+installation; an in-flight download may finish. Manual checks do not enable
+background updates. Development sessions do not contact the update server.
+
+Tauri verifies the installer signature before installation. Its JSON metadata
+is served over HTTPS; the JSON file itself is not separately signed. Windows
+closes the app while the per-user NSIS installer runs and restarts it afterwards.
+Settings and provider credentials are retained. Tauri updater signatures are
+separate from Windows Authenticode signing; SmartScreen may still warn on the
+first installation.
+
+The public release endpoint must work without authentication. Before the first
+release exists, update checks report an error; they cannot confirm the app is
+current. The first updater-enabled version must be installed manually. Verify
+an actual older-to-newer upgrade before declaring the update path production
+ready. Back up the signing key securely: losing it prevents future updates to
+existing installations. See the [Tauri updater documentation](https://v2.tauri.app/plugin/updater/)
+and [official GitHub action](https://github.com/tauri-apps/tauri-action).
 
 ---
 

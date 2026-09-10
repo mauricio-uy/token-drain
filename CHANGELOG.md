@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 - A monochrome application mark, edge reveal, independent usage rings, and a
   floating settings shortcut.
 - An opt-in automatic updater for signed GitHub Releases.
+- Manual update checks, release notes, download progress, retryable errors, and
+  periodic automatic checks that respect opt-out before installation.
+- Draft release asset validation before publishing to the stable update feed.
 - CI and release verification workflows for manifest and tag alignment,
   frontend and Rust quality checks, and the native Tauri build.
 - Weekly dependency update monitoring for npm, Cargo, and GitHub Actions.
