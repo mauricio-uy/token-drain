@@ -212,3 +212,8 @@
   opacity: 0.4;
   cursor: default;
 }
+
+.settings-update-status { margin-top: 14px; }
+.settings-update-status progress { width: 100%; margin-bottom: 8px; }
+.settings-update-notes { margin-bottom: 12px; }
+.settings-update-notes p { white-space: pre-wrap; overflow-wrap: anywhere; }

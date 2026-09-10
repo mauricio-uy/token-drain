@@ -1,7 +1,10 @@
 name: Publish signed release
 
 on:
+  workflow_dispatch:
   push:
+    branches:
+      - "codex/verify-signed-release"
     tags:
       - "v*"
 
@@ -15,6 +18,7 @@ concurrency:
 jobs:
   publish:
     runs-on: windows-latest
+    timeout-minutes: 45
     permissions:
       contents: write
     steps:
@@ -22,11 +26,12 @@ jobs:
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: 20
+          node-version: 22.14.0
           cache: npm
 
       - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable (verified 2026-09-09)
         with:
+          toolchain: 1.98.1
           components: rustfmt, clippy
 
       - name: Install frontend dependencies
@@ -36,6 +41,7 @@ jobs:
         run: npm run check:version
 
       - name: Verify tag matches application version
+        if: github.ref_type == 'tag'
         shell: pwsh
         env:
           RELEASE_REF_TYPE: ${{ github.ref_type }}
@@ -47,6 +53,31 @@ jobs:
           }
           if ($env:RELEASE_TAG -ne "v$version") {
             throw "Tag $env:RELEASE_TAG does not match application version $version."
+          }
+          if ($version -notmatch '^\d+\.\d+\.\d+$') {
+            throw "This workflow publishes stable versions only."
+          }
+
+      - name: Choose release destination
+        id: destination
+        shell: pwsh
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          if ($env:REF_TYPE -eq "tag") {
+            "tag=$env:REF_NAME" >> $env:GITHUB_OUTPUT
+          } else {
+            "tag=verify-updater-$env:GITHUB_RUN_ID" >> $env:GITHUB_OUTPUT
+          }
+
+      - name: Verify signing secret is configured
+        shell: pwsh
+        env:
+          SIGNING_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:SIGNING_KEY)) {
+            throw "Configure the TAURI_SIGNING_PRIVATE_KEY repository secret before releasing."
           }
 
       - name: Run frontend tests
@@ -64,17 +95,40 @@ jobs:
       - name: Run Clippy with warnings denied
         run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features --locked -- -D warnings
 
-      - name: Build, sign, and publish release assets
+      - name: Build and sign draft release assets
         uses: tauri-apps/tauri-action@1ddc7b49b13c3038297360482fcb3e058764d7c9 # v0.6.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tagName: v__VERSION__
+          tagName: ${{ steps.destination.outputs.tag }}
+          releaseCommitish: ${{ github.sha }}
           releaseName: Token Drain v__VERSION__
-          releaseBody: See CHANGELOG.md for release notes.
-          releaseDraft: false
+          releaseBody: Download the x64 setup.exe installer below. Updates preserve your settings. Windows may show a SmartScreen warning because the installer is not Authenticode signed.
+          generateReleaseNotes: true
+          releaseDraft: true
           prerelease: false
-          uploadUpdaterJson: true
+          includeUpdaterJson: true
           updaterJsonPreferNsis: true
+          args: --bundles nsis -- --locked
+
+      - name: Validate uploaded assets before publication
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.destination.outputs.tag }}
+        run: |
+          $assetDirectory = Join-Path $env:RUNNER_TEMP "release-assets"
+          gh release download $env:RELEASE_TAG --dir $assetDirectory
+          if ($LASTEXITCODE -ne 0) { throw "Could not download draft assets." }
+          node scripts/verify-release.mjs $assetDirectory $env:RELEASE_TAG
+          if ($LASTEXITCODE -ne 0) { throw "Release asset validation failed." }
+
+      - name: Publish complete release
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: gh release edit $env:RELEASE_TAG --draft=false --latest

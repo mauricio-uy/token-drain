@@ -1,47 +1,76 @@
 import { check } from "@tauri-apps/plugin-updater";
-import { useEffect, useRef } from "react";
+import { emitTo, listen } from "@tauri-apps/api/event";
+import { useEffect, useState } from "react";
 import { getSettings, type Settings } from "./settings";
 import { liveSnapshot } from "./liveSnapshot";
-import { listen } from "@tauri-apps/api/event";
+import { createUpdateController, type UpdateStatus } from "./updateController";
 
-const SETTINGS_UPDATED_EVENT = "settings-updated";
-const UPDATE_TIMEOUT_MS = 15_000;
+const REQUEST = "update-request";
+const STATUS = "update-status";
+const INTERVAL_MS = 6 * 60 * 60 * 1000;
+type Request = "status" | "check" | "install";
 
-/**
- * Check once per rail lifetime after the user opts in to automatic updates.
- *
- * The check and download remain in the native updater rather than the WebView:
- * it obtains the package from the configured GitHub Release endpoint and
- * verifies its signature against the embedded public key before installation.
- * Development sessions never contact GitHub, and a network failure is silent so
- * an unavailable update host cannot disrupt the usage widget.
- */
+/** The rail owns updates so closing Settings cannot interrupt an installation. */
 export function useAutomaticUpdates(): void {
-  const attempted = useRef(false);
-
   useEffect(() => {
+    if (!import.meta.env.PROD) return;
     let cancelled = false;
-
-    const checkForUpdate = async () => {
-      if (attempted.current || cancelled || !import.meta.env.PROD) return;
-      attempted.current = true;
-
-      try {
-        const update = await check({ timeout: UPDATE_TIMEOUT_MS });
-        if (!cancelled && update) {
-          await update.downloadAndInstall();
-        }
-      } catch {
-        // The rail is useful without updates. Retry at the next app launch.
-      }
+    let unlisten: (() => void) | undefined;
+    const publish = (state: UpdateStatus) => {
+      void emitTo("settings", STATUS, state).catch(() => {});
     };
-
-    return liveSnapshot(
-      (receive) => listen<Settings>(SETTINGS_UPDATED_EVENT, (event) => receive(event.payload)),
+    const controller = createUpdateController(() => check({ timeout: 15_000 }), publish);
+    void listen<Request>(REQUEST, ({ payload }) => {
+      if (cancelled) return;
+      if (payload === "status") publish(controller.snapshot());
+      if (payload === "check") void controller.check();
+      if (payload === "install") void controller.install();
+    }).then((stop) => {
+      if (cancelled) stop();
+      else { unlisten = stop; publish(controller.snapshot()); }
+    }).catch(() => {});
+    const stopSettings = liveSnapshot(
+      (receive) => listen<Settings>("settings-updated", (event) => receive(event.payload)),
       getSettings,
-      (settings) => {
-        if (settings.automaticUpdatesEnabled) void checkForUpdate();
-      },
+      (settings) => controller.setAutomatic(settings.automaticUpdatesEnabled),
     );
+    const timer = window.setInterval(() => void controller.check(true), INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      stopSettings();
+      unlisten?.();
+      window.clearInterval(timer);
+      controller.dispose();
+    };
   }, []);
+}
+
+/** Subscribe before requesting the rail's status, including active downloads. */
+export function useUpdates() {
+  const [status, setStatus] = useState<UpdateStatus>({ phase: "idle" });
+  const [connected, setConnected] = useState(false);
+  useEffect(() => {
+    if (!import.meta.env.PROD) return;
+    let cancelled = false;
+    let unlisten: (() => void) | undefined;
+    let received = false;
+    const timeout = window.setTimeout(() => {
+      if (!cancelled && !received) setStatus({ phase: "error", message: "Update service is unavailable. Restart the app and try again." });
+    }, 5_000);
+    void listen<UpdateStatus>(STATUS, ({ payload }) => {
+      if (!cancelled) { received = true; setStatus(payload); setConnected(true); }
+    }).then(async (stop) => {
+      if (cancelled) { stop(); return; }
+      unlisten = stop;
+      await emitTo("rail", REQUEST, "status");
+    }).catch(() => {
+      if (!cancelled) setStatus({ phase: "error", message: "Update service is unavailable. Restart the app and try again." });
+    });
+    return () => { cancelled = true; window.clearTimeout(timeout); unlisten?.(); };
+  }, []);
+  const request = async (action: Request) => {
+    try { await emitTo("rail", REQUEST, action); }
+    catch { setStatus({ phase: "error", message: "Update service is unavailable. Restart the app and try again." }); }
+  };
+  return { status, connected, check: () => request("check"), install: () => request("install") };
 }
