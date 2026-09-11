@@ -23,6 +23,10 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 
 ### Changed
 
+- Adopted the Outlet logo across the public SVG and native application icons.
+- Added a GitHub repository link to Settings and per-subscription data guides.
+- Shortened the README with a 100% vibe-coded disclosure and documentation links.
+
 - Renamed the application from tok-ching to Token Drain.
 - Made the settings panel compact, collapsible, and consistent with the dark
   application surface.

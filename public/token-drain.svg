@@ -1,7 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="#000000">
-  <title>Token Drain: a token ringing the register</title>
-  <!-- Transparent cutouts keep the mark strictly monochrome on any surface. -->
-  <path fill-rule="evenodd" d="M14 25h21v14h11l9 9v10H7V48l7-9V25Zm5 5v5h11v-5H19Zm-3 18v5h30v-5H16Z"/>
-  <path fill-rule="evenodd" d="M44 10a12 12 0 1 1 0 24 12 12 0 0 1 0-24Zm-6 7v4h4v7h4v-7h4v-4H38Z"/>
-  <path d="m27 10 3-3 6 6-3 3-6-6ZM42 2h4v5h-4V2Zm11 9 5-5 3 3-5 5-3-3Z"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="currentColor">
+  <title>Token Drain — Outlet</title>
+  <desc>A token inside an open circular reservoir, with one token escaping below.</desc>
+  <path d="M44 90.641a40 40 0 1 1 40 0" fill="none" stroke="currentColor" stroke-width="12" stroke-linecap="round"/>
+  <rect x="53" y="45" width="22" height="22" rx="5" transform="rotate(45 64 56)"/>
+  <rect x="56" y="98" width="16" height="16" rx="4"/>
 </svg>
