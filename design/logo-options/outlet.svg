@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="currentColor">
+  <title>Token Drain — Outlet</title>
+  <desc>A token inside an open circular reservoir, with one token escaping below.</desc>
+  <path d="M44 90.641a40 40 0 1 1 40 0" fill="none" stroke="currentColor" stroke-width="12" stroke-linecap="round"/>
+  <rect x="53" y="45" width="22" height="22" rx="5" transform="rotate(45 64 56)"/>
+  <rect x="56" y="98" width="16" height="16" rx="4"/>
+</svg>
