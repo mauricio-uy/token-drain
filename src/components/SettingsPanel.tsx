@@ -2,6 +2,7 @@ import "./SettingsPanel.css";
 import { useId } from "react";
 import { ProviderLogo } from "./ProviderLogo";
 import { UpdateStatus } from "./UpdateStatus";
+import { RepositoryLink } from "./RepositoryLink";
 import { useSettings, type RailSide, type Settings } from "../lib/settings";
 
 /**
@@ -287,6 +288,7 @@ export function SettingsPanel() {
         </p>
         <UpdateStatus />
       </Section>
+      <RepositoryLink />
     </div>
   );
 }

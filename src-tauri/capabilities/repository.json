@@ -1,0 +1,12 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "repository",
+  "description": "Settings can open the project repository in the system browser",
+  "windows": ["settings"],
+  "permissions": [
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [{ "url": "https://github.com/mauricio-uy/token-drain" }]
+    }
+  ]
+}
