@@ -1,5 +1,8 @@
 # Project-local, not shared
 dev-docs/
+/design/
+/.agents/
+/.codex/
 AGENTS.md
 
 # Credentials — never commit these or any capture of their contents
@@ -9,6 +12,13 @@ auth.json
 credentials-dump*
 *token*.json
 !package-lock.json
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+*.pfx
 
 # Logs
 logs
@@ -24,11 +34,19 @@ node_modules
 dist
 dist-ssr
 *.local
+*.tsbuildinfo
+/coverage/
+/playwright-report/
+/test-results/
+/artifacts/
+/release-assets/
 
 # Rust / Tauri build output
 target/
 src-tauri/target/
 src-tauri/gen/schemas
+/src-tauri/icons/android/
+/src-tauri/icons/ios/
 
 # Editor directories and files
 .vscode/
