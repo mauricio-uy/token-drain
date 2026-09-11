@@ -228,8 +228,20 @@ cargo test --test live_usage -- --ignored --nocapture
    The workflow deliberately rejects prerelease versions so they cannot reach
    stable installations. Inspect the workflow before announcing a release.
    Pushing `codex/verify-signed-release` runs the same build and validation but
-   leaves a uniquely named `verify-updater-<run-id>` draft unpublished. Use this
+   updates the current version's draft without publishing it. Use this
    to verify signing secrets before the first production release.
+
+Release notes are extracted from the matching `CHANGELOG.md` version section.
+Use `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, and `Security` only
+when applicable; omit empty categories. Keep future changes under `Unreleased`
+and set the version's date when preparing its release.
+
+Local design proposals, agent settings, environment files, signing keys and
+generated test reports are ignored by Git. Source, tests, documentation and
+build workflows remain versioned; they are needed to maintain the application.
+Only the production frontend in `dist/` is embedded by Tauri. Keep documentation
+out of `public/`, because Vite copies that directory into `dist/` unchanged.
+See [icon maintenance](ICON.md) for the SVG source and native asset generation.
 8. Review the [security policy](../SECURITY.md) before publishing. It documents
    supported versions, report scope, and responsible reporting; GitHub Private
    Vulnerability Reporting is not assumed to be enabled.

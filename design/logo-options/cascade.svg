@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="currentColor">
-  <title>Token Drain — Cascade</title>
-  <desc>Two diminishing layers of tokens converge into a single remaining token.</desc>
-  <path d="m20 22 44 16 44-16v20L64 58 20 42V22Z"/>
-  <path d="m32 60 32 12 32-12v20L64 92 32 80V60Z"/>
-  <rect x="54" y="102" width="20" height="16" rx="4"/>
-</svg>

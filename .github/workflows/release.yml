@@ -68,7 +68,30 @@ jobs:
           if ($env:REF_TYPE -eq "tag") {
             "tag=$env:REF_NAME" >> $env:GITHUB_OUTPUT
           } else {
-            "tag=verify-updater-$env:GITHUB_RUN_ID" >> $env:GITHUB_OUTPUT
+            $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+            "tag=v$version" >> $env:GITHUB_OUTPUT
+          }
+
+      - name: Prepare versioned release notes
+        id: notes
+        shell: pwsh
+        run: node scripts/release-notes.mjs "$env:RUNNER_TEMP/release-notes.md"
+
+      - name: Update existing draft metadata
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.destination.outputs.tag }}
+          RELEASE_COMMIT: ${{ github.sha }}
+        run: |
+          $draft = gh release view $env:RELEASE_TAG --json isDraft --jq .isDraft 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            if ($draft -ne "true") { throw "Published releases must not be overwritten." }
+            gh release edit $env:RELEASE_TAG --draft --target $env:RELEASE_COMMIT --title "Token Drain $env:RELEASE_TAG" --notes-file "$env:RUNNER_TEMP/release-notes.md"
+            if ($LASTEXITCODE -ne 0) { throw "Could not update draft metadata." }
+          } else {
+            # Tauri creates a new draft when this version does not exist yet.
+            $global:LASTEXITCODE = 0
           }
 
       - name: Verify signing secret is configured
@@ -105,8 +128,8 @@ jobs:
           tagName: ${{ steps.destination.outputs.tag }}
           releaseCommitish: ${{ github.sha }}
           releaseName: Token Drain v__VERSION__
-          releaseBody: Download the x64 setup.exe installer below. Updates preserve your settings. Windows may show a SmartScreen warning because the installer is not Authenticode signed.
-          generateReleaseNotes: true
+          releaseBody: ${{ steps.notes.outputs.body }}
+          generateReleaseNotes: false
           releaseDraft: true
           prerelease: false
           includeUpdaterJson: true

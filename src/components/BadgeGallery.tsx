@@ -10,9 +10,8 @@ import type { BadgeState, ProviderView } from "../lib/usage";
  * changed response contract — otherwise only get looked at the day they happen,
  * which is the worst possible time to discover the label does not fit.
  *
- * Enabled with `VITE_DEBUG_BADGES=1`, so it costs nothing in a normal build.
+ * Loaded only during development with `VITE_DEBUG_BADGES=1`.
  */
-export const BADGE_GALLERY_ENABLED = import.meta.env.VITE_DEBUG_BADGES === "1";
 
 function sample(
   provider: string,

@@ -1,71 +1,31 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html).
+Notable user-facing changes are listed by version, newest first.
+This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
+and [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-### Added
+## [0.1.0] - 2026-09-11
 
-- OpenCode Go subscription usage, including five-hour, weekly, and monthly
-  quota windows.
-- A monochrome application mark, edge reveal, independent usage rings, and a
-  floating settings shortcut.
-- An opt-in automatic updater for signed GitHub Releases.
-- Manual update checks, release notes, download progress, retryable errors, and
-  periodic automatic checks that respect opt-out before installation.
-- Draft release asset validation before publishing to the stable update feed.
-- CI and release verification workflows for manifest and tag alignment,
-  frontend and Rust quality checks, and the native Tauri build.
-- Weekly dependency update monitoring for npm, Cargo, and GitHub Actions.
-
-### Changed
-
-- Adopted the Outlet logo across the public SVG and native application icons.
-- Added a GitHub repository link to Settings and per-subscription data guides.
-- Shortened the README with a 100% vibe-coded disclosure and documentation links.
-
-- Renamed the application from tok-ching to Token Drain.
-- Made the settings panel compact, collapsible, and consistent with the dark
-  application surface.
-- Simplified OpenCode Go's compact badge while retaining its monthly quota in
-  the hover card.
-- Restricted the bundled frontend with a local-resource CSP and limited native
-  capabilities to the permissions used by the rail and settings windows.
-- Documented OpenCode Go's read-only credential files, in-memory
-  `OPENCODE_AUTH_CONTENT` override, and credential handling boundary.
-
-### Fixed
-
-- Preserved the newest settings edit and usage event when asynchronous replies
-  arrive out of order.
-- Kept the rail and hover card correctly positioned on either screen edge.
-
-### Removed
-
-- OpenCode Zen workspace billing support and its local web-session credentials.
-
-### Security
-
-- Added a security policy covering supported versions, credential handling,
-  updater and release-process issues, and responsible reporting. The policy
-  does not claim that GitHub Private Vulnerability Reporting is currently
-  enabled.
-
-## [0.1.0] - 2026-09-05
+First release of Token Drain for Windows.
 
 ### Added
 
-- A Windows desktop rail showing Claude and Codex subscription usage.
-- Read-only credential integration with the existing provider CLIs.
-- Cached last-known usage, actionable failure states, threshold notifications,
-  a tray menu, and launch-at-login settings.
-- A contract watcher for the upstream usage integrations and unsigned Windows
-  installers for personal use.
+- Claude subscription usage: five-hour and weekly quotas from the local
+  Claude Code sign-in.
+- Codex subscription usage: session and weekly limits from the local
+  Codex sign-in.
+- OpenCode Go subscription usage: five-hour, weekly, and monthly quotas
+  from the local OpenCode Go connection.
+- A docked desktop rail with hover details, reset times, and cached
+  last-known usage when a provider is unavailable.
+- Configurable refresh intervals, threshold notifications, and launch at login.
+- Manual update checks and optional automatic updates using signed installers.
+- The Outlet logo, a GitHub link in Settings, and per-subscription data guides.
 
 ### Security
 
-- Kept tokens in the Rust process, never wrote them to application data, and
-  restricted network requests to the documented provider endpoints.
+- Provider credentials remain in the native backend and are read without
+  modifying the original credential files.
+- Downloaded updates must pass signature verification before installation.
