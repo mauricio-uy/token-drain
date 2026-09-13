@@ -1,24 +1,13 @@
 import "./ProviderLogo.css";
-import claudeMark from "../assets/logos/claude.svg?raw";
-import codexMark from "../assets/logos/codex.svg?raw";
 import opencodeMark from "../assets/logos/opencode.svg?raw";
 
 /**
- * Provider marks.
+ * Provider identifiers.
  *
- * Used to identify whose quota a badge is reporting. That is nominative use —
- * naming a service to say which one this is — not branding, and the app never
- * suggests any endorsement or partnership.
- *
- * The artwork lives in `src/assets/logos` rather than being pasted in here, so
- * the files the vendors publish stay the single source of truth and can be
- * replaced wholesale without touching this component.
- *
- * **The marks render in `currentColor`, not in their brand colours.** Colour in
- * this widget means exactly one thing — how close a quota is to running out —
- * and Anthropic's clay sits a few degrees of hue from `--level-high`, so a
- * brand-coloured mark inside a green ring would read as a warning that is not
- * there. Identity is carried by the shape, which is unaltered.
+ * Claude and Codex use neutral abbreviations instead of third-party artwork.
+ * Their names identify the compatible subscriptions without redistributing or
+ * modifying vendor logos. OpenCode's MIT-licensed mark is retained with its
+ * notice in `src/assets/logos/OPENCODE-LICENSE.txt`.
  */
 
 type LogoProps = {
@@ -44,6 +33,23 @@ function Mark({ markup, size = 24 }: LogoProps & { markup: string }) {
   );
 }
 
+function LetterMark({
+  letters,
+  label,
+  size = 24,
+}: LogoProps & { letters: string; label: string }) {
+  return (
+    <span
+      className="provider-mark provider-mark--letters"
+      style={{ width: size, height: size, fontSize: Math.max(7, size * 0.36) }}
+      aria-label={label}
+      role="img"
+    >
+      {letters}
+    </span>
+  );
+}
+
 /** Fallback for a provider with no mark of its own. */
 function GenericMark({ size = 24 }: LogoProps) {
   return (
@@ -59,9 +65,9 @@ function GenericMark({ size = 24 }: LogoProps) {
 export function ProviderLogo({ provider, size }: { provider: string; size?: number }) {
   switch (provider) {
     case "claude":
-      return <Mark markup={claudeMark} size={size} />;
+      return <LetterMark letters="CL" label="Claude" size={size} />;
     case "codex":
-      return <Mark markup={codexMark} size={size} />;
+      return <LetterMark letters="CX" label="Codex" size={size} />;
     case "opencode-go":
       return <Mark markup={opencodeMark} size={size} />;
     default:
