@@ -16,6 +16,7 @@ use std::sync::{Arc, Mutex};
 use tokio::sync::{mpsc, Notify};
 
 use crate::cache::UsageCache;
+use crate::diagnostics::{self, Event, PollOutcome};
 use crate::notify::{Alert, ThresholdTracker};
 use crate::providers::claude::ClaudeProvider;
 use crate::providers::codex::CodexProvider;
@@ -105,7 +106,15 @@ impl UsageState {
         // has a window in which neither the new result nor the old cached value
         // is available to render.
         if let Ok(mut cache) = self.cache.lock() {
-            let _ = cache.record_batch(&batch);
+            if cache.record_batch(&batch).is_err() {
+                diagnostics::record(Event::OperationFailed {
+                    operation: diagnostics::Operation::CacheWrite,
+                });
+            }
+        } else {
+            diagnostics::record(Event::OperationFailed {
+                operation: diagnostics::Operation::CacheWrite,
+            });
         }
 
         if let Ok(mut latest) = self.latest.lock() {
@@ -221,6 +230,26 @@ where
                 }
             }
 
+            for fetch in &batch {
+                let badge_state =
+                    crate::view::build_view(fetch.provider, Some(&fetch.result), None).state;
+                let (outcome, status) = match &fetch.result {
+                    Ok(_) => (PollOutcome::Success, Some(200)),
+                    Err(error) => (
+                        PollOutcome::Failure {
+                            kind: diagnostics::failure_kind(error),
+                        },
+                        diagnostics::http_status(error),
+                    ),
+                };
+                diagnostics::record(Event::Poll {
+                    provider: fetch.provider,
+                    outcome,
+                    duration_ms: fetch.duration_ms,
+                    badge_state,
+                    http_status: status,
+                });
+            }
             consumer_state.apply(batch);
             on_update(consumer_state.views());
         }
@@ -279,9 +308,16 @@ pub fn set_settings(
     state: tauri::State<'_, Arc<UsageState>>,
     value: Settings,
 ) -> Result<Settings, String> {
-    let (previous, stored) = state
-        .apply_settings(value)
-        .map_err(|error| error.to_string())?;
+    let (previous, stored) = state.apply_settings(value).map_err(|error| {
+        diagnostics::record(Event::OperationFailed {
+            operation: diagnostics::Operation::SettingsPersistence,
+        });
+        error.to_string()
+    })?;
+
+    if previous != stored {
+        diagnostics::record(Event::SettingsChanged);
+    }
 
     if previous.rail_side != stored.rail_side || previous.vertical_offset != stored.vertical_offset
     {
@@ -290,11 +326,17 @@ pub fn set_settings(
         }
     }
 
-    if previous.disabled_providers != stored.disabled_providers {
-        let _ = tauri::Emitter::emit(&app, USAGE_UPDATED_EVENT, state.views());
+    if previous.disabled_providers != stored.disabled_providers
+        && tauri::Emitter::emit(&app, USAGE_UPDATED_EVENT, state.views()).is_err()
+    {
+        diagnostics::record(Event::OperationFailed {
+            operation: diagnostics::Operation::SettingsUpdate,
+        });
     }
-    if previous != stored {
-        let _ = tauri::Emitter::emit(&app, SETTINGS_UPDATED_EVENT, &stored);
+    if previous != stored && tauri::Emitter::emit(&app, SETTINGS_UPDATED_EVENT, &stored).is_err() {
+        diagnostics::record(Event::OperationFailed {
+            operation: diagnostics::Operation::SettingsUpdate,
+        });
     }
 
     Ok(stored)
@@ -443,10 +485,12 @@ mod tests {
             ProviderFetch {
                 provider: ProviderId::Claude,
                 result: Ok(usage(ProviderId::Claude, 55.0)),
+                duration_ms: 0,
             },
             ProviderFetch {
                 provider: ProviderId::Codex,
                 result: Err(UsageError::Unauthorized),
+                duration_ms: 0,
             },
         ]);
 
@@ -478,6 +522,7 @@ mod tests {
             state.apply(vec![ProviderFetch {
                 provider: ProviderId::Claude,
                 result: Ok(usage(ProviderId::Claude, 55.0)),
+                duration_ms: 0,
             }]);
         }
 
@@ -506,10 +551,12 @@ mod tests {
         state.apply(vec![ProviderFetch {
             provider: ProviderId::Claude,
             result: Ok(usage(ProviderId::Claude, 55.0)),
+            duration_ms: 0,
         }]);
         state.apply(vec![ProviderFetch {
             provider: ProviderId::Claude,
             result: Err(UsageError::Unauthorized),
+            duration_ms: 0,
         }]);
 
         let views = state.views();
@@ -593,6 +640,7 @@ mod tests {
         state.apply(vec![ProviderFetch {
             provider: ProviderId::Claude,
             result: Ok(usage(ProviderId::Claude, 55.0)),
+            duration_ms: 0,
         }]);
 
         let json = serde_json::to_value(state.views()).expect("should serialize");

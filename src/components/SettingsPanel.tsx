@@ -1,9 +1,10 @@
 import "./SettingsPanel.css";
-import { useId } from "react";
+import { useEffect, useId, useState } from "react";
 import { ProviderLogo } from "./ProviderLogo";
 import { UpdateStatus } from "./UpdateStatus";
 import { RepositoryLink } from "./RepositoryLink";
 import { useSettings, type RailSide, type Settings } from "../lib/settings";
+import { getAppVersion, openLogDirectory } from "../lib/diagnostics";
 
 /**
  * Poll intervals worth offering.
@@ -98,6 +99,12 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 export function SettingsPanel() {
   const { settings, providers, launchAtLogin, error, update, updateLaunchAtLogin } =
     useSettings();
+  const [appVersion, setAppVersion] = useState<string | null>(null);
+  const [diagnosticsError, setDiagnosticsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    void getAppVersion().then(setAppVersion, () => setDiagnosticsError("Could not read app version."));
+  }, []);
 
   // Nothing is rendered until the real values arrive. Showing defaults first
   // would flash a configuration the user does not have, and any control touched
@@ -287,6 +294,20 @@ export function SettingsPanel() {
           release key. Windows closes and restarts the app while installing.
         </p>
         <UpdateStatus />
+      </Section>
+      <Section title="Diagnostics" hint="Information to include when reporting a problem.">
+        <p className="settings-hint">Version {appVersion ?? "Loading…"}</p>
+        <button
+          type="button"
+          className="settings-action"
+          onClick={() => {
+            setDiagnosticsError(null);
+            void openLogDirectory().catch(() => setDiagnosticsError("Could not open the log directory."));
+          }}
+        >
+          Open log directory
+        </button>
+        {diagnosticsError && <p className="settings-error" role="alert">{diagnosticsError}</p>}
       </Section>
       <RepositoryLink />
     </div>

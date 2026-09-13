@@ -22,6 +22,8 @@ use std::time::Duration;
 use serde::Deserialize;
 use tauri::{AppHandle, Manager, WebviewWindow};
 
+use crate::diagnostics::{self, Event};
+
 /// How often the cursor is sampled.
 ///
 /// Fast enough that entering the rail feels immediate, slow enough to be
@@ -103,7 +105,11 @@ pub fn spawn_cursor_watcher(app: AppHandle, window: WebviewWindow) {
         // changes. Toggling every tick would be a stream of pointless OS calls.
         let mut ignoring = true;
 
-        let _ = window.set_ignore_cursor_events(true);
+        if window.set_ignore_cursor_events(true).is_err() {
+            diagnostics::record(Event::OperationFailed {
+                operation: diagnostics::Operation::CursorEvents,
+            });
+        }
 
         loop {
             ticker.tick().await;
@@ -115,9 +121,15 @@ pub fn spawn_cursor_watcher(app: AppHandle, window: WebviewWindow) {
             let regions = app.state::<InteractiveRegions>().snapshot();
 
             let Ok(cursor) = app.cursor_position() else {
+                diagnostics::record(Event::OperationFailed {
+                    operation: diagnostics::Operation::CursorPosition,
+                });
                 continue;
             };
             let Ok(origin) = window.outer_position() else {
+                diagnostics::record(Event::OperationFailed {
+                    operation: diagnostics::Operation::WindowPosition,
+                });
                 continue;
             };
             let scale = window.scale_factor().unwrap_or(1.0);
@@ -131,7 +143,11 @@ pub fn spawn_cursor_watcher(app: AppHandle, window: WebviewWindow) {
 
             if ignoring == wanted {
                 ignoring = !wanted;
-                let _ = window.set_ignore_cursor_events(ignoring);
+                if window.set_ignore_cursor_events(ignoring).is_err() {
+                    diagnostics::record(Event::OperationFailed {
+                        operation: diagnostics::Operation::CursorEvents,
+                    });
+                }
             }
         }
     });

@@ -222,6 +222,7 @@ mod tests {
             .record_batch(&[ProviderFetch {
                 provider: ProviderId::Claude,
                 result: Ok(usage(ProviderId::Claude, 60.0, 3_000)),
+                duration_ms: 0,
             }])
             .unwrap();
         drop(cache);
@@ -265,6 +266,7 @@ mod tests {
             .record_batch(&[ProviderFetch {
                 provider: ProviderId::Claude,
                 result: Err(UsageError::Unauthorized),
+                duration_ms: 0,
             }])
             .unwrap();
         drop(cache);
@@ -292,6 +294,7 @@ mod tests {
             .record_batch(&[ProviderFetch {
                 provider: ProviderId::Claude,
                 result: Err(UsageError::Unauthorized),
+                duration_ms: 0,
             }])
             .expect("should succeed without writing");
 
