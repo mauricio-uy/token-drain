@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/mauricio-uy/token-drain/security/advisories/new
+    about: Report security vulnerabilities privately through GitHub Security Advisories.
+  - name: Documentation and support
+    url: https://github.com/mauricio-uy/token-drain/blob/main/SUPPORT.md
+    about: Read the support guide before opening an issue.

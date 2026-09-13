@@ -1,0 +1,64 @@
+name: Bug report
+description: Report a reproducible problem in Token Drain.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not include credentials, tokens, private keys, or unredacted logs.
+        Use the Security tab for vulnerabilities.
+  - type: input
+    id: version
+    attributes:
+      label: Token Drain version
+      description: For example, 0.1.0.
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      placeholder: Windows 11 24H2
+    validations:
+      required: true
+  - type: input
+    id: provider
+    attributes:
+      label: Provider or area
+      description: For example, Claude, Codex, OpenCode Go, updates, or settings.
+      placeholder: Claude
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: List the smallest reliable sequence that reproduces the problem.
+      placeholder: |
+        1. Start Token Drain...
+        2. Open Settings...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized logs or screenshots
+      description: Remove credentials, tokens, account IDs, and private paths before sharing.
+    validations:
+      required: false

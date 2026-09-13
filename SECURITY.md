@@ -3,8 +3,8 @@
 ## Supported versions
 
 The repository currently declares version `0.1.0` in its package, Cargo, and
-Tauri manifests. No public release or GitHub security setting is assumed by
-this document.
+Tauri manifests. Public release records, when available, are listed on the
+[GitHub Releases](https://github.com/mauricio-uy/token-drain/releases) page.
 
 During the pre-release period, security fixes target the current `0.1.x`
 development line. After public releases begin, support is limited to the
@@ -40,17 +40,14 @@ its release process.
 
 ## Responsible reporting
 
-Before the first public release, GitHub **Private Vulnerability Reporting must
-be enabled for this repository**. This policy does not claim that the setting is
-currently enabled.
+GitHub **Private Vulnerability Reporting is enabled for this repository**. Use
+the repository's **Security** tab and **Report a vulnerability** entry to submit
+a private report. Do not use a public issue, pull request, discussion, or
+release to report a vulnerability.
 
-Once it is enabled, use the repository's GitHub **Security** tab and **Report a
-vulnerability** entry to submit a private report. Do not use a public issue,
-pull request, discussion, or release to report a vulnerability.
-
-If private reporting is not available, do not include vulnerability details in
-a public post. Ask the repository maintainers to enable GitHub Private
-Vulnerability Reporting, then submit the details through that private channel.
+If private reporting is temporarily unavailable, do not include vulnerability
+details in a public post. Contact the maintainers through the support channel
+described in [SUPPORT.md](SUPPORT.md) and ask for a private reporting route.
 
 A useful report includes the affected version or commit, Windows version,
 installation or update path, reproduction steps, security impact, and
