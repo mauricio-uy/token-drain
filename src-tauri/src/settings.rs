@@ -210,10 +210,11 @@ impl SettingsStore {
         let settings = settings.sanitised();
 
         if let Ok(mut current) = self.current.lock() {
+            self.persist(&settings)?;
             *current = settings.clone();
+        } else {
+            self.persist(&settings)?;
         }
-
-        self.persist(&settings)?;
 
         Ok(settings)
     }
@@ -505,5 +506,34 @@ mod tests {
         };
 
         assert_eq!(settings.active_thresholds(), vec![50, 80, 95]);
+    }
+
+    #[test]
+    fn a_failed_write_leaves_current_settings_unchanged() {
+        let dir = TempDir::new("failed-write");
+        let original = Settings {
+            poll_interval_seconds: 900,
+            rail_side: RailSide::Left,
+            ..Settings::default()
+        };
+        let store = SettingsStore::open(&dir.0);
+        store
+            .set(original.clone())
+            .expect("should persist original");
+
+        // `persist` writes this path before renaming it over `settings.json`.
+        // A directory at that exact path makes the write fail on every
+        // supported platform while leaving the previously stored file intact.
+        fs::create_dir(dir.0.join("settings.json.tmp")).expect("should block temporary file");
+
+        let attempted = Settings {
+            poll_interval_seconds: 1_800,
+            rail_side: RailSide::Right,
+            ..Settings::default()
+        };
+
+        assert!(store.set(attempted).is_err());
+        assert_eq!(store.get(), original);
+        assert_eq!(SettingsStore::open(&dir.0).get(), original);
     }
 }
