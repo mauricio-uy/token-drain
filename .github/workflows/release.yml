@@ -3,8 +3,6 @@ name: Publish signed release
 on:
   workflow_dispatch:
   push:
-    branches:
-      - "codex/verify-signed-release"
     tags:
       - "v*"
 
@@ -36,6 +34,15 @@ jobs:
 
       - name: Install frontend dependencies
         run: npm ci
+
+      - name: Audit frontend dependencies
+        run: npm audit --audit-level=high
+
+      - name: Audit Rust dependencies
+        uses: actions-rust-lang/audit@72c09e02f132669d52284a3323acdb503cfc1a24 # v1.2.7
+        with:
+          workingDirectory: src-tauri
+          createIssues: false
 
       - name: Verify release manifests
         run: npm run check:version
