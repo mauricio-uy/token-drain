@@ -38,11 +38,21 @@ jobs:
       - name: Audit frontend dependencies
         run: npm audit --audit-level=high
 
-      - name: Audit Rust dependencies
-        uses: actions-rust-lang/audit@72c09e02f132669d52284a3323acdb503cfc1a24 # v1.2.7
+      - name: Cache cargo-audit
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         with:
-          workingDirectory: src-tauri
-          createIssues: false
+          path: ~/.cargo/bin/cargo-audit.exe
+          key: ${{ runner.os }}-cargo-audit-0.22.2
+
+      - name: Install cargo-audit
+        shell: pwsh
+        run: |
+          if (-not (Get-Command cargo-audit -ErrorAction SilentlyContinue)) {
+            cargo install cargo-audit --version 0.22.2 --locked --no-default-features
+          }
+
+      - name: Audit Rust dependencies
+        run: cargo audit --file src-tauri/Cargo.lock
 
       - name: Verify release manifests
         run: npm run check:version
