@@ -32,6 +32,8 @@ pub const DEFAULT_PROVIDER_TIMEOUT: Duration = Duration::from_secs(15);
 pub struct ProviderFetch {
     pub provider: ProviderId,
     pub result: Result<ProviderUsage, UsageError>,
+    /// Elapsed time for this provider's request, in milliseconds.
+    pub duration_ms: u64,
 }
 
 /// A configured provider.
@@ -131,6 +133,7 @@ impl ProviderRegistry {
             tasks.spawn(async move {
                 let provider = &registry.providers[index];
                 let id = provider.id();
+                let started = std::time::Instant::now();
 
                 // Why a timeout per provider rather than one around the whole
                 // batch: a batch-wide deadline lets one wedged provider consume
@@ -147,6 +150,7 @@ impl ProviderRegistry {
                     ProviderFetch {
                         provider: id,
                         result,
+                        duration_ms: started.elapsed().as_millis().min(u128::from(u64::MAX)) as u64,
                     },
                 )
             });

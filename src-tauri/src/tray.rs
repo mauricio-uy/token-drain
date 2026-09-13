@@ -9,6 +9,7 @@ use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Manager};
 
+use crate::diagnostics::{self, Event};
 use crate::runtime::UsageState;
 use crate::settings::SettingsStore;
 use crate::window::settings_window;
@@ -35,7 +36,11 @@ fn set_rail_visible(app: &AppHandle, visible: bool) {
     };
 
     if visible {
-        let _ = rail.show();
+        if rail.show().is_err() {
+            diagnostics::record(Event::OperationFailed {
+                operation: diagnostics::Operation::WindowShow,
+            });
+        }
         // Re-dock on the way back. The work area may have changed while the rail
         // was hidden — a display unplugged, the taskbar moved — and the dock
         // watcher would otherwise leave it in the wrong place for up to its
@@ -44,7 +49,11 @@ fn set_rail_visible(app: &AppHandle, visible: bool) {
             crate::window::dock(&rail, &settings.get());
         }
     } else {
-        let _ = rail.hide();
+        if rail.hide().is_err() {
+            diagnostics::record(Event::OperationFailed {
+                operation: diagnostics::Operation::WindowHide,
+            });
+        }
     }
 }
 
@@ -97,10 +106,18 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
                 set_rail_visible(app, !rail_is_visible(app));
                 // Set the tick from what the window actually did, not from what
                 // was asked for. If show() failed, the menu should say so.
-                let _ = checkbox.set_checked(rail_is_visible(app));
+                if checkbox.set_checked(rail_is_visible(app)).is_err() {
+                    diagnostics::record(Event::OperationFailed {
+                        operation: diagnostics::Operation::TrayMenuState,
+                    });
+                }
             }
             MENU_SETTINGS => {
-                let _ = settings_window::open(app);
+                if settings_window::open(app).is_err() {
+                    diagnostics::record(Event::OperationFailed {
+                        operation: diagnostics::Operation::SettingsWindow,
+                    });
+                }
             }
             MENU_QUIT => app.exit(0),
             _ => {}

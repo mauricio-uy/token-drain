@@ -7,6 +7,7 @@
 
 pub mod autostart;
 pub mod cache;
+pub mod diagnostics;
 pub mod notify;
 pub mod providers;
 pub mod runtime;
@@ -64,7 +65,11 @@ pub fn run() {
             // launched again means "show me", which for this app means making
             // sure the rail is on screen and in the right place.
             if let Some(rail) = app.get_webview_window(RAIL_WINDOW_LABEL) {
-                let _ = rail.show();
+                if rail.show().is_err() {
+                    diagnostics::record(diagnostics::Event::OperationFailed {
+                        operation: diagnostics::Operation::WindowShow,
+                    });
+                }
 
                 if let Some(settings) = app.try_state::<Arc<SettingsStore>>() {
                     window::dock(&rail, &settings.get());
@@ -93,10 +98,14 @@ pub fn run() {
             set_settings,
             get_launch_at_login,
             set_launch_at_login,
-            open_settings
+            open_settings,
+            diagnostics::get_app_version,
+            diagnostics::open_log_directory
         ])
         .setup(|app| {
             let data_directory = data_directory(app.handle());
+            let diagnostics = diagnostics::initialize(&data_directory);
+            diagnostics.record(diagnostics::Event::Startup);
 
             // Settings first: the rail is docked using them, so loading them
             // afterwards would place the window once at the default position
@@ -119,17 +128,33 @@ pub fn run() {
                 &data_directory,
                 Arc::clone(&settings),
                 move |views| {
-                    let _ = emitter.emit(USAGE_UPDATED_EVENT, views);
+                    if emitter.emit(USAGE_UPDATED_EVENT, views).is_err() {
+                        diagnostics::record(diagnostics::Event::OperationFailed {
+                            operation: diagnostics::Operation::UsageUpdate,
+                        });
+                    }
                 },
                 move |alert| {
                     // A toast that fails to send is not worth taking the app
                     // down for, and there is nowhere useful to report it: the
                     // user is by definition not looking at the app.
-                    let _ = tauri_plugin_notification::NotificationExt::notification(&notifier)
+                    if tauri_plugin_notification::NotificationExt::notification(&notifier)
                         .builder()
                         .title(alert.title())
                         .body(alert.body())
-                        .show();
+                        .show()
+                        .is_err()
+                    {
+                        diagnostics::record(diagnostics::Event::OperationFailed {
+                            operation: diagnostics::Operation::Notification,
+                        });
+                    } else {
+                        diagnostics::record(diagnostics::Event::NotificationSent {
+                            provider: alert.provider,
+                            window: alert.window,
+                            threshold: alert.threshold,
+                        });
+                    }
                 },
             )?;
 

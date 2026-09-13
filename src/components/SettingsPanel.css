@@ -168,6 +168,20 @@
   cursor: pointer;
 }
 
+.settings-action {
+  border: 1px solid var(--color-border, #3b3b3b);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 0.45rem 0.7rem;
+}
+
+.settings-action:hover,
+.settings-action:focus-visible {
+  background: rgba(255, 255, 255, 0.08);
+}
+
 .settings-reset:disabled {
   color: var(--text-muted);
   cursor: default;

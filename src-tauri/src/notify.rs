@@ -15,6 +15,8 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
+use crate::diagnostics::{self, Event};
+
 use crate::providers::usage::{ProviderId, ProviderUsage, UsageWindow};
 
 const ALERTS_FILE_NAME: &str = "alerts.json";
@@ -202,12 +204,18 @@ impl ThresholdTracker {
         };
 
         let Ok(json) = serde_json::to_string_pretty(&file) else {
+            diagnostics::record(Event::OperationFailed {
+                operation: diagnostics::Operation::AlertPersistence,
+            });
             return;
         };
 
         let temporary = path.with_extension("json.tmp");
-        if fs::write(&temporary, json).is_ok() {
-            let _ = fs::rename(&temporary, path);
+        let failed = fs::write(&temporary, json).is_err() || fs::rename(&temporary, path).is_err();
+        if failed {
+            diagnostics::record(Event::OperationFailed {
+                operation: diagnostics::Operation::AlertPersistence,
+            });
         }
     }
 

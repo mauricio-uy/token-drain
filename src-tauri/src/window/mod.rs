@@ -9,6 +9,7 @@ use std::time::Duration;
 
 use tauri::{Monitor, PhysicalPosition, WebviewWindow};
 
+use crate::diagnostics::{self, Event};
 use crate::settings::{Settings, SettingsStore};
 use placement::{dock_position, to_physical, RailPlacement, Rect, MIN_TOP_MARGIN_LOGICAL};
 
@@ -76,7 +77,22 @@ pub fn dock(window: &WebviewWindow, settings: &Settings) -> bool {
         }
     }
 
-    window.set_position(PhysicalPosition::new(x, y)).is_ok()
+    match window.set_position(PhysicalPosition::new(x, y)) {
+        Ok(()) => {
+            diagnostics::record(Event::DockRecalculated {
+                side: settings.rail_side,
+                x,
+                y,
+            });
+            true
+        }
+        Err(_) => {
+            diagnostics::record(Event::OperationFailed {
+                operation: diagnostics::Operation::WindowPosition,
+            });
+            false
+        }
+    }
 }
 
 /// Keep the window docked for the lifetime of the app.
