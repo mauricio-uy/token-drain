@@ -14,18 +14,22 @@ Claude, Codex, and OpenCode Go are supported today.
 
 ## Install
 
-Download `Token Drain_<version>_x64-setup.exe` and run it. It installs for the
-current user into `%LOCALAPPDATA%\Token Drain` and needs no administrator rights.
+Download `Token Drain_<version>_x64-setup.exe` from the
+[latest GitHub release](https://github.com/mauricio-uy/token-drain/releases/latest)
+and run it. Public releases provide the NSIS `.exe` installer. It installs for
+the current user into `%LOCALAPPDATA%\Token Drain` and needs no administrator
+rights.
 
-An `.msi` is also produced. It installs **per machine** and therefore requires
-administrator rights; prefer the `.exe` unless you specifically want a
-machine-wide install.
+The local Tauri configuration targets all installer formats, so a developer
+build may also produce an `.msi`. MSI artifacts are not part of the supported
+public download or release workflow for v0.1.0; do not use one as the normal
+installation path.
 
 > **Windows will warn you the first time.** The installers are not code-signed,
 > so SmartScreen shows *"Windows protected your PC"*. Choose **More info** →
-> **Run anyway**. This is expected, and it is worth knowing that a paid
-> certificate would not remove that warning either — SmartScreen trust is earned
-> through download volume, which a personal tool will never accumulate.
+> **Run anyway** only after verifying that the download came from this
+> repository's release page. This is expected for the unsigned v0.1.0 installer;
+> future Authenticode signing is tracked separately from updater signatures.
 
 You will also need a provider CLI installed and signed in — the app never asks
 you for credentials and cannot log you in.
@@ -71,6 +75,7 @@ When one expires, the badge says so and you sign in again with the CLI.
 | `%APPDATA%\dev.tokendrain.app\settings.json` | Your preferences |
 | `%APPDATA%\dev.tokendrain.app\usage-cache.json` | Last successful figures, so the rail is not empty at launch |
 | `%APPDATA%\dev.tokendrain.app\alerts.json` | Which thresholds have already been announced |
+| `%APPDATA%\dev.tokendrain.app\logs\token-drain.log*` | Bounded diagnostic events, version, and timestamps |
 | `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` | Only while *Launch at login* is on |
 
 None of these contains a token. If the app data directory cannot be resolved for
@@ -119,6 +124,11 @@ HTTP failures record a status code only — never a header, a body, or a URL wit
 a query. Errors from reading a credentials file carry the file's path and, for a
 syntax error, the line and column, never the surrounding text.
 
+Diagnostic logs use fixed event fields and never include credentials, headers,
+response bodies, account IDs, or credential-file paths. They rotate at 64 KiB
+and retain at most three backups. Review and sanitize logs before sharing them,
+because timestamps and usage state can still reveal personal activity patterns.
+
 ---
 
 ## Caveats
@@ -153,8 +163,8 @@ cover it.
 
 ### Prerequisites
 
-- Node.js 20+
-- Rust (stable, `x86_64-pc-windows-msvc` host)
+- Node.js `^20.19.0` or `>=22.12.0` (the supported Vite 8 ranges)
+- Rust 1.98.1 with the `x86_64-pc-windows-msvc` host
 - Microsoft Visual Studio Build Tools with the C++ workload, and a Windows SDK
 - WebView2 runtime (preinstalled on Windows 11)
 
@@ -227,9 +237,9 @@ cargo test --test live_usage -- --ignored --nocapture
    failed workflow; never move an already published tag or replace its assets.
    The workflow deliberately rejects prerelease versions so they cannot reach
    stable installations. Inspect the workflow before announcing a release.
-   Pushing `codex/verify-signed-release` runs the same build and validation but
-   updates the current version's draft without publishing it. Use this
-   to verify signing secrets before the first production release.
+   Use a private draft or a manual workflow run to verify signing secrets before
+   the first production release. Never use a temporary release branch as a
+   production trigger.
 
 Release notes are extracted from the matching `CHANGELOG.md` version section.
 Use `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, and `Security` only
@@ -243,8 +253,9 @@ Only the production frontend in `dist/` is embedded by Tauri. Keep documentation
 out of `public/`, because Vite copies that directory into `dist/` unchanged.
 See [icon maintenance](ICON.md) for the SVG source and native asset generation.
 8. Review the [security policy](../SECURITY.md) before publishing. It documents
-   supported versions, report scope, and responsible reporting; GitHub Private
-   Vulnerability Reporting is not assumed to be enabled.
+   supported versions, report scope, and responsible reporting. GitHub Private
+   Vulnerability Reporting is enabled for this repository; confirm the Security
+   tab still exposes **Report a vulnerability** before announcing the release.
 
 ### Automatic updates
 
@@ -283,4 +294,5 @@ Tauri v2 · Rust · React · TypeScript · Vite
 
 ## License
 
-MIT — see [LICENSE](../LICENSE).
+MIT — see [LICENSE](../LICENSE) and the
+[third-party notices](../THIRD_PARTY_NOTICES.md).

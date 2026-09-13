@@ -3,6 +3,18 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "license": "MIT",
+  "homepage": "https://github.com/mauricio-uy/token-drain#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mauricio-uy/token-drain.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mauricio-uy/token-drain/issues"
+  },
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
