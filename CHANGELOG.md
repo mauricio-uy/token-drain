@@ -6,7 +6,7 @@ and [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-## [0.1.0] - 2026-09-11
+## [0.1.0] - 2026-09-12
 
 First release of Token Drain for Windows.
 
@@ -23,9 +23,16 @@ First release of Token Drain for Windows.
 - Configurable refresh intervals, threshold notifications, and launch at login.
 - Manual update checks and optional automatic updates using signed installers.
 - The Outlet logo, a GitHub link in Settings, and per-subscription data guides.
+- Bounded local diagnostic logs and an in-app shortcut for support reports.
+
+### Fixed
+
+- A failed settings write no longer changes the configuration used in memory.
 
 ### Security
 
 - Provider credentials remain in the native backend and are read without
   modifying the original credential files.
 - Downloaded updates must pass signature verification before installation.
+- Provider badges avoid redistributing modified third-party Claude and OpenAI
+  artwork; neutral identifiers are used instead.
