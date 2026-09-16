@@ -34,5 +34,3 @@ First release of Token Drain for Windows.
 - Provider credentials remain in the native backend and are read without
   modifying the original credential files.
 - Downloaded updates must pass signature verification before installation.
-- Provider badges avoid redistributing modified third-party Claude and OpenAI
-  artwork; neutral identifiers are used instead.
