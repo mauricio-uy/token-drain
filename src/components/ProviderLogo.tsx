@@ -1,13 +1,12 @@
 import "./ProviderLogo.css";
+import claudeMark from "../assets/logos/claude.svg?raw";
+import codexMark from "../assets/logos/codex.svg?raw";
 import opencodeMark from "../assets/logos/opencode.svg?raw";
 
 /**
- * Provider identifiers.
- *
- * Claude and Codex use neutral abbreviations instead of third-party artwork.
- * Their names identify the compatible subscriptions without redistributing or
- * modifying vendor logos. OpenCode's MIT-licensed mark is retained with its
- * notice in `src/assets/logos/OPENCODE-LICENSE.txt`.
+ * Provider marks identify the subscription reported by each badge.
+ * The artwork stays in individual assets so the component has fixed, audited
+ * markup sources. OpenCode's MIT license is retained alongside its SVG.
  */
 
 type LogoProps = {
@@ -33,23 +32,6 @@ function Mark({ markup, size = 24 }: LogoProps & { markup: string }) {
   );
 }
 
-function LetterMark({
-  letters,
-  label,
-  size = 24,
-}: LogoProps & { letters: string; label: string }) {
-  return (
-    <span
-      className="provider-mark provider-mark--letters"
-      style={{ width: size, height: size, fontSize: Math.max(7, size * 0.36) }}
-      aria-label={label}
-      role="img"
-    >
-      {letters}
-    </span>
-  );
-}
-
 /** Fallback for a provider with no mark of its own. */
 function GenericMark({ size = 24 }: LogoProps) {
   return (
@@ -65,9 +47,9 @@ function GenericMark({ size = 24 }: LogoProps) {
 export function ProviderLogo({ provider, size }: { provider: string; size?: number }) {
   switch (provider) {
     case "claude":
-      return <LetterMark letters="CL" label="Claude" size={size} />;
+      return <Mark markup={claudeMark} size={size} />;
     case "codex":
-      return <LetterMark letters="CX" label="Codex" size={size} />;
+      return <Mark markup={codexMark} size={size} />;
     case "opencode-go":
       return <Mark markup={opencodeMark} size={size} />;
     default:
