@@ -246,8 +246,8 @@ Use `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, and `Security` only
 when applicable; omit empty categories. Keep future changes under `Unreleased`
 and set the version's date when preparing its release.
 
-Local design proposals, agent settings, environment files, signing keys and
-generated test reports are ignored by Git. Source, tests, documentation and
+Local design proposals, local-only tool settings, environment files, signing keys
+and generated test reports are ignored by Git. Source, tests, documentation and
 build workflows remain versioned; they are needed to maintain the application.
 Only the production frontend in `dist/` is embedded by Tauri. Keep documentation
 out of `public/`, because Vite copies that directory into `dist/` unchanged.
