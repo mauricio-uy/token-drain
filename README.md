@@ -1,5 +1,7 @@
 # Token Drain
 
+![Token Drain docked rail and usage card on a desktop](docs/readme-hero.png)
+
 Token Drain is a small Windows desktop widget that shows usage and rate limits
 for Claude, Codex, and OpenCode Go subscriptions at a glance.
 
