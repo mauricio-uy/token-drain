@@ -11,45 +11,22 @@
 //! cargo test --test live_usage -- --ignored --nocapture
 //! ```
 //!
-//! Security: tokens are read, sent to their own provider, and dropped. They are
-//! never printed; the only output is percentages and reset timestamps.
+//! Security: tokens are read, sent to their own provider, and dropped. Tokens,
+//! plan names, percentages, reset timestamps, and provider error details are
+//! never printed.
 
 use token_drain_lib::providers::claude::ClaudeProvider;
 use token_drain_lib::providers::codex::CodexProvider;
 use token_drain_lib::providers::http::build_client;
 use token_drain_lib::providers::provider::UsageProvider;
-use token_drain_lib::providers::usage::{ProviderUsage, UsageWindow};
+use token_drain_lib::providers::usage::ProviderUsage;
 
-fn describe(provider: &str, label: &str, window: Option<&UsageWindow>) -> String {
-    match window {
-        Some(window) => {
-            let resets = window
-                .resets_at
-                .and_then(chrono::DateTime::from_timestamp_millis)
-                .map(|moment| moment.to_rfc3339())
-                .unwrap_or_else(|| "unknown".to_owned());
-
-            format!(
-                "{provider}  {label}: {:.0}% used, resets {resets} (window {} min)",
-                window.used_percent, window.window_minutes
-            )
-        }
-        None => format!("{provider}  {label}: not reported"),
-    }
-}
-
-/// Print a snapshot and assert it carries at least one usable window.
+/// Assert that a live snapshot carries at least one usable window.
 ///
 /// That assertion is the point: without it, a run where the request still
-/// succeeds but the payload has drifted would print two "not reported" lines and
+/// succeeds but the payload has drifted could report no usable data and still
 /// pass, which is exactly the silent failure these checks exist to catch.
-fn report(provider: &str, usage: &ProviderUsage) {
-    if let Some(plan) = &usage.plan {
-        println!("{provider}  plan:    {plan}");
-    }
-    println!("{}", describe(provider, "session", usage.session.as_ref()));
-    println!("{}", describe(provider, "weekly ", usage.weekly.as_ref()));
-
+fn assert_live_contract(provider: &str, usage: &ProviderUsage) {
     assert!(
         usage.session.is_some() || usage.weekly.is_some(),
         "{provider}: the response parsed but reported no usable window - the contract has drifted"
@@ -62,8 +39,8 @@ async fn prints_live_claude_usage() {
     let provider = ClaudeProvider::new(build_client().expect("client should build"));
 
     match provider.fetch().await {
-        Ok(usage) => report("claude", &usage),
-        Err(error) => panic!("live claude usage fetch failed: {error}"),
+        Ok(usage) => assert_live_contract("claude", &usage),
+        Err(_) => panic!("live claude usage fetch failed"),
     }
 }
 
@@ -73,7 +50,7 @@ async fn prints_live_codex_usage() {
     let provider = CodexProvider::new(build_client().expect("client should build"));
 
     match provider.fetch().await {
-        Ok(usage) => report("codex ", &usage),
-        Err(error) => panic!("live codex usage fetch failed: {error}"),
+        Ok(usage) => assert_live_contract("codex", &usage),
+        Err(_) => panic!("live codex usage fetch failed"),
     }
 }
