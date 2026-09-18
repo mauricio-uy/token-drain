@@ -6,6 +6,13 @@ and [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-09-18
+
+### Security
+
+- Updated the Windows HTTPS stack to include the rustls fix for
+  RUSTSEC-2026-0285.
+
 ## [0.1.0] - 2026-09-13
 
 First release of Token Drain for Windows.
