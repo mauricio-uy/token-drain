@@ -1,4 +1,7 @@
-# Token Drain
+<h1 align="center">
+  <img src="public/token-drain.svg" alt="Token Drain logo" width="40" height="40" align="center">
+  Token Drain
+</h1>
 
 ![Token Drain docked rail and usage card on a desktop](docs/readme-hero.png)
 

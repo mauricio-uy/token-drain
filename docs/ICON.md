@@ -6,6 +6,10 @@ below. Its geometry uses `currentColor`, with a transparent background. The
 generated desktop assets are black on transparency. The mark is covered by
 the repository's MIT license.
 
+[`docs/social-preview.png`](social-preview.png) is the 1280 by 640 GitHub social
+preview image. Upload it in the repository settings under **Settings → General →
+Social preview** after changing it in the repo.
+
 Generate native assets with the installed Tauri CLI:
 
 ```powershell
