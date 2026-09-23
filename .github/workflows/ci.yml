@@ -14,6 +14,7 @@ permissions:
 jobs:
   verify:
     runs-on: windows-latest
+    cache-mode: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'write' || 'read' }}
 
     steps:
       - name: Check out repository
