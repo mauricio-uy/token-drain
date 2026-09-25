@@ -12,7 +12,7 @@ export function releaseNotes(changelog, version) {
   const end = lines.findIndex((line, index) => index > start && line.startsWith("## "));
   const section = lines.slice(start + 1, end < 0 ? undefined : end).join("\n").trim();
   assert.ok(section, "Release notes must not be empty");
-  return `${section}\n\n### Installation\n\nDownload the Windows x64 setup.exe installer below. Sign in through your provider's CLI to make its usage available.\n\nThe installer is signed for Tauri update verification, but is not Windows Authenticode signed. Windows may show a SmartScreen warning.\n`;
+  return `${section}\n\n### Installation\n\nDownload the Windows x64 setup.exe installer below. Sign in through your provider's CLI or desktop app to make its usage available; Claude needs one sign-in through the Claude Code CLI.\n\nThe installer is signed for Tauri update verification, but is not Windows Authenticode signed. Windows may show a SmartScreen warning.\n`;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {

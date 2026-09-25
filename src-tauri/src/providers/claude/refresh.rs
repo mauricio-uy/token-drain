@@ -64,6 +64,8 @@ pub struct TokenResponse {
     access_token: Option<String>,
     refresh_token: Option<String>,
     expires_in: Option<i64>,
+    /// Lifetime of the replacement refresh token, when the server states it.
+    refresh_token_expires_in: Option<i64>,
 }
 
 /// A renewed token set, ready to be written back.
@@ -72,6 +74,8 @@ pub struct RenewedTokens {
     /// The replacement refresh token. Absent when the server kept the old one.
     pub refresh_token: Option<String>,
     pub expires_at: Option<i64>,
+    /// When the replacement refresh token expires, if the server said.
+    pub refresh_token_expires_at: Option<i64>,
 }
 
 impl TokenResponse {
@@ -79,13 +83,21 @@ impl TokenResponse {
     /// contract change, not a success.
     pub fn into_renewed(self, now_ms: i64) -> Result<RenewedTokens, UsageError> {
         let access_token = normalize_token(self.access_token).ok_or(UsageError::Parse)?;
+        let refresh_token = normalize_token(self.refresh_token);
+        let expiry = |seconds: Option<i64>| {
+            seconds
+                .filter(|seconds| *seconds > 0)
+                .map(|seconds| now_ms.saturating_add(seconds.saturating_mul(1000)))
+        };
         Ok(RenewedTokens {
             access_token,
-            refresh_token: normalize_token(self.refresh_token),
-            expires_at: self
-                .expires_in
-                .filter(|seconds| *seconds > 0)
-                .map(|seconds| now_ms.saturating_add(seconds.saturating_mul(1000))),
+            // Only meaningful alongside a replacement: a lifetime with no new
+            // refresh token would be attached to the old one.
+            refresh_token_expires_at: refresh_token
+                .as_ref()
+                .and_then(|_| expiry(self.refresh_token_expires_in)),
+            refresh_token,
+            expires_at: expiry(self.expires_in),
         })
     }
 }
@@ -192,6 +204,11 @@ pub fn merge_renewed(
     if let Some(expires_at) = renewed.expires_at {
         oauth.insert("expiresAt".to_owned(), Value::from(expires_at));
     }
+    // Without a stated lifetime the stored one is left as it was: the server
+    // may not report it, and guessing could only make it less accurate.
+    if let Some(expires_at) = renewed.refresh_token_expires_at {
+        oauth.insert("refreshTokenExpiresAt".to_owned(), Value::from(expires_at));
+    }
 
     serde_json::to_string(&document)
         .map(Some)
@@ -268,6 +285,7 @@ mod tests {
             access_token: NEW_ACCESS.to_owned(),
             refresh_token: Some(NEW_REFRESH.to_owned()),
             expires_at: Some(NOW_MS + 3_600_000),
+            refresh_token_expires_at: None,
         }
     }
 
@@ -310,6 +328,43 @@ mod tests {
         assert_eq!(renewed.access_token, NEW_ACCESS);
         assert_eq!(renewed.refresh_token.as_deref(), Some(NEW_REFRESH));
         assert_eq!(renewed.expires_at, Some(NOW_MS + 28_800_000));
+    }
+
+    #[test]
+    fn a_stated_refresh_token_lifetime_is_recorded() {
+        let response: TokenResponse = serde_json::from_str(&format!(
+            r#"{{"access_token": "{NEW_ACCESS}", "refresh_token": "{NEW_REFRESH}",
+                "expires_in": 60, "refresh_token_expires_in": 86400}}"#
+        ))
+        .expect("should parse");
+
+        let renewed = response.into_renewed(NOW_MS).expect("should be usable");
+        assert_eq!(renewed.refresh_token_expires_at, Some(NOW_MS + 86_400_000));
+
+        let merged = merge_renewed(
+            &credentials_file(OLD_REFRESH),
+            OLD_REFRESH,
+            &renewed,
+            &fixture_path(),
+        )
+        .expect("should merge")
+        .expect("the refresh token still matches");
+        let document: Value = serde_json::from_str(&merged).expect("valid JSON");
+        assert_eq!(
+            document["claudeAiOauth"]["refreshTokenExpiresAt"],
+            NOW_MS + 86_400_000
+        );
+    }
+
+    #[test]
+    fn a_refresh_token_lifetime_without_a_replacement_is_ignored() {
+        let response: TokenResponse = serde_json::from_str(&format!(
+            r#"{{"access_token": "{NEW_ACCESS}", "refresh_token_expires_in": 86400}}"#
+        ))
+        .expect("should parse");
+
+        let renewed = response.into_renewed(NOW_MS).expect("should be usable");
+        assert_eq!(renewed.refresh_token_expires_at, None);
     }
 
     #[test]

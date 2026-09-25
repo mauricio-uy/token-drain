@@ -31,8 +31,11 @@ installation path.
 > repository's release page. This is expected for the unsigned v0.1.0 installer;
 > future Authenticode signing is tracked separately from updater signatures.
 
-You will also need a provider CLI installed and signed in — the app never asks
-you for credentials and cannot log you in.
+You will also need to be signed in to each provider you want to see — the app
+never asks you for credentials and cannot log you in. For Codex, the CLI or the
+desktop app is enough. For Claude, sign in through the Claude Code CLI once;
+after that the app keeps that login renewed even if you only use the Claude
+desktop app (see [Claude](claude.md)).
 
 Uninstall from **Settings → Apps**, or run `uninstall.exe` in the install
 directory. That removes the program but **leaves your data** (see below); delete
@@ -42,9 +45,9 @@ directory. That removes the program but **leaves your data** (see below); delete
 
 ## How it works
 
-The app reads the OAuth access tokens that provider CLIs already store in your
-home directory, and queries each provider's usage endpoint directly. It does not
-ask you for credentials, and it never creates any of its own.
+The app reads the OAuth tokens that provider tools already store in your home
+directory, and queries each provider's usage endpoint directly. It does not ask
+you for credentials, and it never creates any of its own.
 
 ### Files read
 
@@ -61,24 +64,32 @@ supplies the JSON credential in memory. The JSON must contain an `opencode-go`
 entry with `type` set to `api` and a non-empty `key`; the app accepts it only as
 a bearer credential and never writes it back.
 
-**These files are read only.** The app never writes to them. That is a
-deliberate choice rather than an oversight: they belong to the CLIs, which
-rotate the tokens inside them, and writing would race that rotation and could
-strand a single-use refresh token — signing you out of the tool this app is
-meant to watch. It follows that the app cannot refresh an expired token either.
-When one expires, the badge says so and you sign in again with the CLI.
+**One of these files is ever written: Claude's.** The Codex and OpenCode files
+are only read. Claude's is renewed when its access token expires, because the
+Claude desktop app never updates it and it would otherwise stay expired for
+anyone who does not use the CLI. These files belong to the provider tools, which
+rotate the tokens inside them, and a careless write could strand a single-use
+refresh token and sign you out of the tool this app is meant to watch. The
+renewal therefore re-reads the file just before writing and backs off if the
+CLI renewed it first, preserves every field it does not own, and replaces the
+file atomically. [Claude](claude.md) has the details.
+
+When a login is rejected, the badge says so. Once you sign in again, the app
+notices the credentials file changed within about fifteen seconds and polls
+again rather than waiting out its backoff.
 
 ### Files written
 
 | Path | Purpose |
 |---|---|
+| `%USERPROFILE%\.claude\.credentials.json` | Only to renew an expired Claude access token, as described above |
 | `%APPDATA%\dev.tokendrain.app\settings.json` | Your preferences |
 | `%APPDATA%\dev.tokendrain.app\usage-cache.json` | Last successful figures, so the rail is not empty at launch |
 | `%APPDATA%\dev.tokendrain.app\alerts.json` | Which thresholds have already been announced |
 | `%APPDATA%\dev.tokendrain.app\logs\token-drain.log*` | Bounded diagnostic events, version, and timestamps |
 | `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` | Only while *Launch at login* is on |
 
-None of these contains a token. If the app data directory cannot be resolved for
+None of the app's own files contains a token. If the app data directory cannot be resolved for
 any reason, it falls back to a folder under `%TEMP%` and keeps working with a
 memory that does not survive a reboot.
 
@@ -87,13 +98,14 @@ memory that does not survive a reboot.
 | Host | Why |
 |---|---|
 | `api.anthropic.com` | Claude usage |
+| `console.anthropic.com` | Renewing an expired Claude access token |
 | `chatgpt.com` | Codex usage |
 | `opencode.ai` | OpenCode Go usage |
 | `github.com` | Update metadata and downloads after a manual check or automatic-update opt-in |
 | `release-assets.githubusercontent.com`, `objects.githubusercontent.com` | GitHub's release-asset delivery hosts for updates |
 
 Without a manual update request or automatic-update opt-in, the app itself
-contacts only the three provider hosts listed above. In **Settings → Updates**,
+contacts only the provider hosts listed above. In **Settings → Updates**,
 you can request a manual check or enable automatic checks at startup and every
 six hours. The native updater contacts GitHub Releases. It
 accepts and installs only an artifact whose signature matches Token Drain's

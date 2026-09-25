@@ -13,8 +13,10 @@ environment variable is set. It uses `tokens.access_token` and, when present,
 keychain are not read by this file-based integration.
 
 Credentials are re-read on each poll. Token Drain does not modify `auth.json`
-or refresh the OAuth session. If the token is rejected, sign in again through
-Codex; the next poll can use the updated credentials.
+or refresh the OAuth session. Both the Codex CLI and the Codex desktop app keep
+this file current, so either one is enough. If the token is rejected, sign in
+again through either of them; Token Drain notices the file change within about
+fifteen seconds and polls again, subject to the one-minute minimum.
 
 ## Request and mapping
 
