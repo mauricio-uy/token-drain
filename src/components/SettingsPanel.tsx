@@ -32,6 +32,10 @@ const INTERVALS: { seconds: number; label: string }[] = [
 /** Mirrors `MAX_VERTICAL_OFFSET` in `src-tauri/src/settings.rs`. */
 const MAX_VERTICAL_OFFSET = 400;
 
+/** Mirror `MIN_UI_SCALE` and `MAX_UI_SCALE` in `src-tauri/src/settings.rs`. */
+const MIN_UI_SCALE = 70;
+const MAX_UI_SCALE = 100;
+
 /**
  * Marks offered as chips.
  *
@@ -101,12 +105,81 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 /**
+ * A slider that saves when released rather than on every step of a drag.
+ *
+ * Each save re-docks or re-lays out the rail, and a stream of them mid-drag
+ * makes the slider stutter. The value on screen follows the pointer the whole
+ * time; only the save waits.
+ */
+function ReleasedSlider({
+  label,
+  min,
+  max,
+  step,
+  value,
+  describe,
+  reset,
+  onCommit,
+}: {
+  label: string;
+  min: number;
+  max: number;
+  step: number;
+  value: number;
+  describe: (value: number) => string;
+  /** The button that returns the slider to its default. */
+  reset: { value: number; label: string };
+  onCommit: (value: number) => void;
+}) {
+  const [draft, setDraft] = useState<number | null>(null);
+
+  // A stored value beyond the range sits at the end it overshoots.
+  const shown = Math.min(max, Math.max(min, draft ?? value));
+
+  const commit = () => {
+    if (draft === null) return;
+    setDraft(null);
+    if (draft !== value) onCommit(draft);
+  };
+
+  return (
+    <>
+      <div className="settings-slider">
+        <input
+          type="range"
+          aria-label={label}
+          aria-valuetext={describe(shown)}
+          min={min}
+          max={max}
+          step={step}
+          value={shown}
+          onChange={(event) => setDraft(Number(event.target.value))}
+          onPointerUp={commit}
+          onKeyUp={commit}
+          onBlur={commit}
+        />
+        <button
+          type="button"
+          className="settings-reset"
+          onClick={() => {
+            setDraft(null);
+            onCommit(reset.value);
+          }}
+          disabled={shown === reset.value}
+        >
+          {reset.label}
+        </button>
+      </div>
+      <p className="settings-hint">{describe(shown)}</p>
+    </>
+  );
+}
+
+/**
  * The vertical position slider.
  *
  * Its ends are the limits of travel on the rail's current monitor, so every
- * step moves the rail and both ends reach an edge. The value is saved when the
- * slider is released rather than on every step of a drag: each save re-docks
- * the rail, and a stream of them mid-drag makes the slider stutter.
+ * step moves the rail and both ends reach an edge.
  */
 function VerticalPosition({
   side,
@@ -121,7 +194,6 @@ function VerticalPosition({
     -MAX_VERTICAL_OFFSET,
     MAX_VERTICAL_OFFSET,
   ]);
-  const [draft, setDraft] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -137,47 +209,17 @@ function VerticalPosition({
     };
   }, [side]);
 
-  const [min, max] = range;
-  // A stored offset beyond this screen's travel sits at the end it overshoots,
-  // which is where the rail actually is.
-  const shown = Math.min(max, Math.max(min, draft ?? offset));
-
-  const commit = () => {
-    if (draft === null) return;
-    setDraft(null);
-    if (draft !== offset) onCommit(draft);
-  };
-
   return (
-    <>
-      <div className="settings-slider">
-        <input
-          type="range"
-          aria-label="Vertical position"
-          aria-valuetext={describeOffset(shown)}
-          min={min}
-          max={max}
-          step={1}
-          value={shown}
-          onChange={(event) => setDraft(Number(event.target.value))}
-          onPointerUp={commit}
-          onKeyUp={commit}
-          onBlur={commit}
-        />
-        <button
-          type="button"
-          className="settings-reset"
-          onClick={() => {
-            setDraft(null);
-            onCommit(0);
-          }}
-          disabled={shown === 0}
-        >
-          Centre
-        </button>
-      </div>
-      <p className="settings-hint">{describeOffset(shown)}</p>
-    </>
+    <ReleasedSlider
+      label="Vertical position"
+      min={range[0]}
+      max={range[1]}
+      step={1}
+      value={offset}
+      describe={describeOffset}
+      reset={{ value: 0, label: "Centre" }}
+      onCommit={onCommit}
+    />
   );
 }
 
@@ -272,7 +314,7 @@ export function SettingsPanel() {
         </select>
       </Section>
 
-      <Section title="Appearance" hint="Where the rail sits on screen.">
+      <Section title="Appearance" hint="Where the rail sits on screen, and how big it is.">
         <Field label="Side">
           <div className="settings-choices" role="radiogroup" aria-label="Side">
             {(["left", "right"] as RailSide[]).map((side) => (
@@ -294,6 +336,20 @@ export function SettingsPanel() {
             side={settings.railSide}
             offset={settings.verticalOffset}
             onCommit={(verticalOffset) => update({ verticalOffset })}
+          />
+        </Field>
+
+        <Field label="Size">
+          <ReleasedSlider
+            label="Size"
+            min={MIN_UI_SCALE}
+            max={MAX_UI_SCALE}
+            step={5}
+            value={settings.uiScale}
+            describe={(scale) =>
+              scale === MAX_UI_SCALE ? "Full size" : `${scale}% of full size. Text keeps its size.`}
+            reset={{ value: MAX_UI_SCALE, label: "Full size" }}
+            onCommit={(uiScale) => update({ uiScale })}
           />
         </Field>
       </Section>

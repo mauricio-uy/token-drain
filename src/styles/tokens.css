@@ -23,13 +23,18 @@
   --level-high: #f26d3d;
   --level-track: #2a2a33;
 
-  /* Rail geometry. */
-  --rail-width: 108px;
-  --rail-radius: 28px;
-  --rail-corner: 22px;
-  --rail-padding: 22px;
-  --rail-gap: 26px;
+  /* Rail geometry. Every measurement is multiplied by the user's size
+     setting; text sizes deliberately are not, so shrinking the rail never
+     makes a figure harder to read. Set on the root element at runtime; the
+     value here mirrors `DEFAULT_UI_SCALE`, so the first paint matches it. */
+  --ui-scale: 0.7;
 
-  --badge-size: 64px;
-  --badge-ring: 4px;
+  --rail-width: calc(108px * var(--ui-scale));
+  --rail-radius: calc(28px * var(--ui-scale));
+  --rail-corner: calc(22px * var(--ui-scale));
+  --rail-padding: calc(22px * var(--ui-scale));
+  --rail-gap: calc(26px * var(--ui-scale));
+
+  --badge-size: calc(64px * var(--ui-scale));
+  --badge-ring: calc(4px * var(--ui-scale));
 }

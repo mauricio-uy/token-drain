@@ -10,8 +10,8 @@ import opencodeMark from "../assets/logos/opencode.svg?raw";
  */
 
 type LogoProps = {
-  /** Edge length in CSS pixels. */
-  size?: number;
+  /** Edge length: a number of CSS pixels, or any CSS length. */
+  size?: number | string;
 };
 
 /**
@@ -44,7 +44,7 @@ function GenericMark({ size = 24 }: LogoProps) {
 }
 
 /** Render the monochrome mark for a known provider, or a neutral fallback. */
-export function ProviderLogo({ provider, size }: { provider: string; size?: number }) {
+export function ProviderLogo({ provider, size }: { provider: string } & LogoProps) {
   switch (provider) {
     case "claude":
       return <Mark markup={claudeMark} size={size} />;

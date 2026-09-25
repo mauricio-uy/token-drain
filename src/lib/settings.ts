@@ -18,6 +18,8 @@ export type Settings = {
   railSide: RailSide;
   /** Nudge from vertical centre, in logical pixels. Positive moves down. */
   verticalOffset: number;
+  /** Size of the rail's geometry as a percentage; text is never scaled. */
+  uiScale: number;
   notificationsEnabled: boolean;
   /** Percentages worth interrupting at. Sorted and deduplicated by the backend. */
   notificationThresholds: number[];
@@ -35,15 +37,27 @@ export async function openSettingsWindow(): Promise<void> {
   await invoke("open_settings");
 }
 
-/** Follow docking preferences in the rail without loading the settings form. */
-export function useRailSide(): RailSide {
-  const [side, setSide] = useState<RailSide>("right");
+/** How the rail should look, as far as the rail itself needs to know. */
+export type RailAppearance = {
+  side: RailSide;
+  /** Geometry scale as a fraction, 1 being full size. */
+  scale: number;
+};
+
+/** Follow appearance preferences in the rail without loading the settings form. */
+export function useRailAppearance(): RailAppearance {
+  const [appearance, setAppearance] = useState<RailAppearance>({ side: "right", scale: 0.7 });
   useEffect(() => liveSnapshot(
     (receive) => listen<Settings>("settings-updated", (event) => receive(event.payload)),
     getSettings,
-    (settings) => setSide(settings.railSide),
+    (settings) => setAppearance((current) => {
+      const next = { side: settings.railSide, scale: settings.uiScale / 100 };
+      // Keep the same object when nothing changed, so unrelated settings
+      // edits do not re-render the rail.
+      return current.side === next.side && current.scale === next.scale ? current : next;
+    }),
   ), []);
-  return side;
+  return appearance;
 }
 
 /**
