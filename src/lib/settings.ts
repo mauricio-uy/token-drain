@@ -78,6 +78,14 @@ export async function saveSettings(value: Settings): Promise<Settings> {
   return invoke<Settings>("set_settings", { value });
 }
 
+/**
+ * The vertical offsets that move the rail on its current monitor, as
+ * `[furthest up, furthest down]` in logical pixels.
+ */
+export async function getVerticalOffsetRange(side: RailSide): Promise<[number, number]> {
+  return invoke<[number, number]>("get_vertical_offset_range", { side });
+}
+
 type SettingsForm = {
   settings: Settings | null;
   providers: string[];

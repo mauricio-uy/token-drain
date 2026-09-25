@@ -23,8 +23,8 @@ use tauri_plugin_autostart::MacosLauncher;
 
 use autostart::{get_launch_at_login, set_launch_at_login};
 use runtime::{
-    get_settings, get_usage_snapshot, list_providers, refresh_now, set_settings, UsageState,
-    USAGE_UPDATED_EVENT,
+    get_settings, get_usage_snapshot, get_vertical_offset_range, list_providers, refresh_now,
+    set_settings, UsageState, USAGE_UPDATED_EVENT,
 };
 use settings::SettingsStore;
 use window::interaction::{set_interactive_regions, InteractiveRegions};
@@ -96,6 +96,7 @@ pub fn run() {
             get_settings,
             list_providers,
             set_settings,
+            get_vertical_offset_range,
             get_launch_at_login,
             set_launch_at_login,
             open_settings,

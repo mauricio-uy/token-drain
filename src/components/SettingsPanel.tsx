@@ -3,7 +3,12 @@ import { useEffect, useId, useState } from "react";
 import { ProviderLogo } from "./ProviderLogo";
 import { UpdateStatus } from "./UpdateStatus";
 import { RepositoryLink } from "./RepositoryLink";
-import { useSettings, type RailSide, type Settings } from "../lib/settings";
+import {
+  getVerticalOffsetRange,
+  useSettings,
+  type RailSide,
+  type Settings,
+} from "../lib/settings";
 import { getAppVersion, openLogDirectory } from "../lib/diagnostics";
 
 /**
@@ -92,6 +97,87 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <h3 className="settings-field-title">{label}</h3>
       {children}
     </div>
+  );
+}
+
+/**
+ * The vertical position slider.
+ *
+ * Its ends are the limits of travel on the rail's current monitor, so every
+ * step moves the rail and both ends reach an edge. The value is saved when the
+ * slider is released rather than on every step of a drag: each save re-docks
+ * the rail, and a stream of them mid-drag makes the slider stutter.
+ */
+function VerticalPosition({
+  side,
+  offset,
+  onCommit,
+}: {
+  side: RailSide;
+  offset: number;
+  onCommit: (offset: number) => void;
+}) {
+  const [range, setRange] = useState<[number, number]>([
+    -MAX_VERTICAL_OFFSET,
+    MAX_VERTICAL_OFFSET,
+  ]);
+  const [draft, setDraft] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getVerticalOffsetRange(side).then(
+      (next) => {
+        if (!cancelled) setRange(next);
+      },
+      // Keep the fallback range: the backend clamps whatever is chosen anyway.
+      () => {},
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [side]);
+
+  const [min, max] = range;
+  // A stored offset beyond this screen's travel sits at the end it overshoots,
+  // which is where the rail actually is.
+  const shown = Math.min(max, Math.max(min, draft ?? offset));
+
+  const commit = () => {
+    if (draft === null) return;
+    setDraft(null);
+    if (draft !== offset) onCommit(draft);
+  };
+
+  return (
+    <>
+      <div className="settings-slider">
+        <input
+          type="range"
+          aria-label="Vertical position"
+          aria-valuetext={describeOffset(shown)}
+          min={min}
+          max={max}
+          step={1}
+          value={shown}
+          onChange={(event) => setDraft(Number(event.target.value))}
+          onPointerUp={commit}
+          onKeyUp={commit}
+          onBlur={commit}
+        />
+        <button
+          type="button"
+          className="settings-reset"
+          onClick={() => {
+            setDraft(null);
+            onCommit(0);
+          }}
+          disabled={shown === 0}
+        >
+          Centre
+        </button>
+      </div>
+      <p className="settings-hint">{describeOffset(shown)}</p>
+    </>
   );
 }
 
@@ -204,27 +290,11 @@ export function SettingsPanel() {
         </Field>
 
         <Field label="Vertical position">
-          <div className="settings-slider">
-            <input
-              type="range"
-              aria-label="Vertical position"
-              aria-valuetext={describeOffset(settings.verticalOffset)}
-              min={-MAX_VERTICAL_OFFSET}
-              max={MAX_VERTICAL_OFFSET}
-              step={10}
-              value={settings.verticalOffset}
-              onChange={(event) => update({ verticalOffset: Number(event.target.value) })}
-            />
-            <button
-              type="button"
-              className="settings-reset"
-              onClick={() => update({ verticalOffset: 0 })}
-              disabled={settings.verticalOffset === 0}
-            >
-              Centre
-            </button>
-          </div>
-          <p className="settings-hint">{describeOffset(settings.verticalOffset)}</p>
+          <VerticalPosition
+            side={settings.railSide}
+            offset={settings.verticalOffset}
+            onCommit={(verticalOffset) => update({ verticalOffset })}
+          />
         </Field>
       </Section>
 
