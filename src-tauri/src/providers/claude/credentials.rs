@@ -1,9 +1,10 @@
 //! Reading the Claude CLI's stored OAuth credentials.
 //!
 //! The Claude Code CLI persists its OAuth blob to `~/.claude/.credentials.json`
-//! under a `claudeAiOauth` key. This module reads that file and nothing else: it
-//! performs no network access and never writes, so it cannot disturb the CLI's
-//! own session.
+//! under a `claudeAiOauth` key. This module only reads that file: it performs no
+//! network access and never writes. Renewing an expired token, the one case
+//! where the file is written, lives in [`super::refresh`] and is careful not to
+//! disturb the CLI's own session.
 
 use std::fmt;
 use std::path::{Path, PathBuf};
@@ -215,10 +216,9 @@ mod tests {
 
     #[test]
     fn reading_never_modifies_the_file() {
-        // Guards the read-only decision behaviorally rather than by convention.
-        // This file belongs to the CLI: writing to it races the CLI's own token
-        // rotation and can strand a single-use refresh token, signing the user
-        // out of the tool they actually depend on.
+        // Reading must stay side-effect free. The only write this app makes is
+        // the token renewal in `refresh`, which guards against racing the CLI's
+        // own rotation; an incidental write from a plain read would not.
         let path = std::env::temp_dir().join("token-drain-readonly-claude.json");
         let original = format!(
             r#"{{"claudeAiOauth": {{"accessToken": "{FAKE_ACCESS_TOKEN}", "expiresAt": 1}}}}"#

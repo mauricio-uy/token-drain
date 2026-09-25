@@ -81,6 +81,15 @@ impl UsageError {
             Self::RateLimited { .. } | Self::Server { .. } | Self::Network { .. }
         )
     }
+
+    /// Whether only new credentials on disk can fix this failure.
+    ///
+    /// These are the failures the user resolves by signing in — through the
+    /// CLI or a desktop app that shares its credentials file — so the refresh
+    /// loop watches that file instead of waiting out the backoff ceiling.
+    pub fn awaits_new_credentials(&self) -> bool {
+        matches!(self, Self::Unauthorized | Self::MissingCredentials(_))
+    }
 }
 
 #[cfg(test)]
@@ -110,6 +119,17 @@ mod tests {
             path: PathBuf::from("nowhere")
         })
         .is_transient());
+    }
+
+    #[test]
+    fn only_credential_failures_wait_for_new_credentials() {
+        assert!(UsageError::Unauthorized.awaits_new_credentials());
+        assert!(UsageError::MissingCredentials(CredentialError::NotFound {
+            path: PathBuf::from("nowhere")
+        })
+        .awaits_new_credentials());
+        assert!(!UsageError::Parse.awaits_new_credentials());
+        assert!(!UsageError::Server { status: 503 }.awaits_new_credentials());
     }
 
     #[test]

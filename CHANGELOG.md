@@ -6,6 +6,15 @@ and [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- Claude usage keeps working when Claude Code is only used through the Claude
+  desktop app: an expired saved login is now renewed automatically instead of
+  showing "sign in".
+- A provider showing "sign in" recovers within seconds of its saved login
+  changing (for example after the Codex desktop app renews it), instead of
+  waiting up to 30 minutes.
+
 ## [0.1.1] - 2026-09-18
 
 ### Security
