@@ -6,9 +6,11 @@ Token Drain is a small Windows desktop widget that shows usage and rate limits
 for Claude, Codex, and OpenCode Go subscriptions at a glance.
 
 The rail stays at the edge of the screen and keeps the provider badges visible
-without opening a browser or asking you to paste credentials. Data collection
-details are documented for [Claude](docs/claude.md), [Codex](docs/codex.md), and
-[OpenCode Go](docs/opencode.md).
+without opening a browser or asking you to paste credentials. It works whether
+you use the provider CLIs or only the Claude and Codex desktop apps, and it can
+be moved along either screen edge, resized, and switched between dark and light
+themes. Data collection details are documented for [Claude](docs/claude.md),
+[Codex](docs/codex.md), and [OpenCode Go](docs/opencode.md).
 
 ## Download
 

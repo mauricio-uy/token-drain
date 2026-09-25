@@ -39,6 +39,39 @@ pub const MAX_POLL_INTERVAL: Duration = Duration::from_secs(3_600);
 /// settings window it just made hard to reach.
 pub const MAX_VERTICAL_OFFSET: i32 = 400;
 
+/// Smallest size the rail may be shrunk to, as a percentage.
+///
+/// Only the geometry shrinks; text keeps its size so it stays legible. Below
+/// this the rail becomes narrower than two percentage labels side by side.
+pub const MIN_UI_SCALE: u8 = 70;
+
+/// Full size. Enlarging is not offered: the window is sized for 100%.
+pub const MAX_UI_SCALE: u8 = 100;
+
+/// Size for a fresh install. The smallest size, since the rail's job is to take
+/// as little of the screen as possible; the user can enlarge it from there.
+pub const DEFAULT_UI_SCALE: u8 = MIN_UI_SCALE;
+
+/// Colour theme of every window the app draws.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum AppTheme {
+    #[default]
+    Dark,
+    Light,
+}
+
+impl AppTheme {
+    /// The matching native theme, for the parts CSS cannot reach such as the
+    /// settings window's title bar.
+    pub fn native(self) -> tauri::Theme {
+        match self {
+            Self::Dark => tauri::Theme::Dark,
+            Self::Light => tauri::Theme::Light,
+        }
+    }
+}
+
 /// Everything the user can change.
 ///
 /// Providers are stored as the **disabled** set rather than the enabled one, so
@@ -58,6 +91,9 @@ pub struct Settings {
     pub disabled_providers: BTreeSet<ProviderId>,
     pub rail_side: RailSide,
     pub vertical_offset: i32,
+    /// Size of the rail's geometry, as a percentage of full size.
+    pub ui_scale: u8,
+    pub theme: AppTheme,
     pub notifications_enabled: bool,
     /// Percentages worth interrupting the user at. A set, so it is inherently
     /// sorted and free of duplicates.
@@ -80,6 +116,8 @@ impl Default for Settings {
             disabled_providers: BTreeSet::new(),
             rail_side: RailSide::default(),
             vertical_offset: 0,
+            ui_scale: DEFAULT_UI_SCALE,
+            theme: AppTheme::default(),
             notifications_enabled: true,
             notification_thresholds: BTreeSet::from(DEFAULT_THRESHOLDS),
             automatic_updates_enabled: false,
@@ -103,6 +141,8 @@ impl Settings {
         self.vertical_offset = self
             .vertical_offset
             .clamp(-MAX_VERTICAL_OFFSET, MAX_VERTICAL_OFFSET);
+
+        self.ui_scale = self.ui_scale.clamp(MIN_UI_SCALE, MAX_UI_SCALE);
 
         // A threshold of 0 would fire the moment a window opened, and one above
         // 100 could never fire at all. Both are dropped rather than clamped:
@@ -283,6 +323,8 @@ mod tests {
             disabled_providers: BTreeSet::from([ProviderId::Codex]),
             rail_side: RailSide::Left,
             vertical_offset: -120,
+            ui_scale: 85,
+            theme: AppTheme::Light,
             notifications_enabled: false,
             notification_thresholds: BTreeSet::from([50, 90]),
             automatic_updates_enabled: true,
@@ -353,6 +395,9 @@ mod tests {
 
         assert_eq!(settings.poll_interval(), MIN_POLL_INTERVAL);
         assert_eq!(settings.vertical_offset, MAX_VERTICAL_OFFSET);
+        // Absent from this older file, so it takes its default.
+        assert_eq!(settings.ui_scale, DEFAULT_UI_SCALE);
+        assert_eq!(settings.theme, AppTheme::Dark);
         // Values that were already in range are kept, not reset along with the
         // ones that were not.
         assert_eq!(settings.rail_side, RailSide::Left);
@@ -372,6 +417,19 @@ mod tests {
 
         assert_eq!(stored.vertical_offset, MAX_VERTICAL_OFFSET);
         assert_eq!(store.get(), stored);
+    }
+
+    #[test]
+    fn the_ui_scale_is_clamped_to_the_offered_range() {
+        for (asked, kept) in [(0, MIN_UI_SCALE), (85, 85), (250, MAX_UI_SCALE)] {
+            let settings = Settings {
+                ui_scale: asked,
+                ..Settings::default()
+            }
+            .sanitised();
+
+            assert_eq!(settings.ui_scale, kept, "asked for {asked}");
+        }
     }
 
     #[test]
@@ -417,6 +475,8 @@ mod tests {
                 "notificationsEnabled",
                 "pollIntervalSeconds",
                 "railSide",
+                "theme",
+                "uiScale",
                 "verticalOffset"
             ],
             "the settings shape changed; confirm no credential material was added"

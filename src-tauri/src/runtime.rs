@@ -302,8 +302,32 @@ pub fn list_providers() -> Vec<ProviderId> {
 /// interval, so switching a provider off could leave its badge on screen for the
 /// best part of a minute. Which providers to *show* is already known here — it
 /// needs no network — so it is answered here.
+/// The vertical offsets that actually move the rail on its current monitor,
+/// in logical pixels, for the given side: `(furthest up, furthest down)`.
+///
+/// Also bounded by the stored range, so the slider never offers a value the
+/// settings would clamp away.
 #[tauri::command]
-pub fn set_settings(
+pub async fn get_vertical_offset_range(
+    app: tauri::AppHandle,
+    side: crate::window::placement::RailSide,
+) -> (i32, i32) {
+    use crate::settings::MAX_VERTICAL_OFFSET;
+
+    let range = tauri::Manager::get_webview_window(&app, crate::RAIL_WINDOW_LABEL)
+        .and_then(|rail| crate::window::offset_range(&rail, side));
+
+    match range {
+        Some((up, down)) => (up.max(-MAX_VERTICAL_OFFSET), down.min(MAX_VERTICAL_OFFSET)),
+        None => (-MAX_VERTICAL_OFFSET, MAX_VERTICAL_OFFSET),
+    }
+}
+
+/// Async so it runs off the main thread. A synchronous command runs on the
+/// thread that also pumps window messages, and a slider being dragged sends a
+/// stream of these: blocking that thread on each one stalls the drag itself.
+#[tauri::command]
+pub async fn set_settings(
     app: tauri::AppHandle,
     state: tauri::State<'_, Arc<UsageState>>,
     value: Settings,
@@ -323,6 +347,16 @@ pub fn set_settings(
     {
         if let Some(rail) = tauri::Manager::get_webview_window(&app, crate::RAIL_WINDOW_LABEL) {
             crate::window::dock(&rail, &stored);
+        }
+    }
+
+    if previous.theme != stored.theme {
+        if let Some(window) = tauri::Manager::get_webview_window(
+            &app,
+            crate::window::settings_window::SETTINGS_WINDOW_LABEL,
+        ) {
+            // Failing here leaves only the title bar in the old theme.
+            let _ = window.set_theme(Some(stored.theme.native()));
         }
     }
 

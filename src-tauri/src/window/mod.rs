@@ -11,7 +11,7 @@ use tauri::{Monitor, PhysicalPosition, WebviewWindow};
 
 use crate::diagnostics::{self, Event};
 use crate::settings::{Settings, SettingsStore};
-use placement::{dock_position, to_physical, RailPlacement, Rect, MIN_TOP_MARGIN_LOGICAL};
+use placement::{dock_position, to_physical, vertical_offset_range, RailPlacement, RailSide, Rect};
 
 /// How often the window's position is re-checked.
 ///
@@ -40,25 +40,59 @@ fn target_monitor(window: &WebviewWindow) -> Option<Monitor> {
 /// converted here, so the same settings file puts the rail in the same place on
 /// a 100% and a 150% display.
 pub fn desired_position(window: &WebviewWindow, settings: &Settings) -> Option<(i32, i32)> {
-    let monitor = target_monitor(window)?;
-    let size = window.outer_size().ok()?;
+    let geometry = DockGeometry::of(window, settings.rail_side)?;
+    let placement = geometry
+        .placement
+        .with_vertical_offset(to_physical(settings.vertical_offset as f64, geometry.scale));
 
-    let area = monitor.work_area();
-    let work_area = Rect::new(
-        area.position.x,
-        area.position.y,
-        area.size.width,
-        area.size.height,
-    );
+    Some(dock_position(
+        geometry.work_area,
+        geometry.width,
+        geometry.height,
+        placement,
+    ))
+}
 
-    let scale = monitor.scale_factor();
-    let placement = RailPlacement::new(
-        settings.rail_side,
-        to_physical(MIN_TOP_MARGIN_LOGICAL, scale),
-    )
-    .with_vertical_offset(to_physical(settings.vertical_offset as f64, scale));
+/// The vertical offsets, in logical pixels, that move the rail on its current
+/// monitor when docked to `side`, as `(furthest up, furthest down)`.
+pub fn offset_range(window: &WebviewWindow, side: RailSide) -> Option<(i32, i32)> {
+    let geometry = DockGeometry::of(window, side)?;
+    let (up, down) = vertical_offset_range(geometry.work_area, geometry.height);
+    // Truncate toward zero, so a converted end never overshoots the limit.
+    let to_logical = |physical: i32| (f64::from(physical) / geometry.scale).trunc() as i32;
+    Some((to_logical(up), to_logical(down)))
+}
 
-    Some(dock_position(work_area, size.width, size.height, placement))
+/// The physical measurements the docking rules work from.
+struct DockGeometry {
+    work_area: Rect,
+    width: u32,
+    height: u32,
+    scale: f64,
+    /// Centred on the requested side.
+    placement: RailPlacement,
+}
+
+impl DockGeometry {
+    fn of(window: &WebviewWindow, side: RailSide) -> Option<Self> {
+        let monitor = target_monitor(window)?;
+        let size = window.outer_size().ok()?;
+        let area = monitor.work_area();
+        let scale = monitor.scale_factor();
+
+        Some(Self {
+            work_area: Rect::new(
+                area.position.x,
+                area.position.y,
+                area.size.width,
+                area.size.height,
+            ),
+            width: size.width,
+            height: size.height,
+            scale,
+            placement: RailPlacement::new(side),
+        })
+    }
 }
 
 /// Move the window to its docked position, if it is not already there.

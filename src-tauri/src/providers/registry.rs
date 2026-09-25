@@ -5,8 +5,9 @@
 //! a changed contract on one endpoint must leave the other provider's badge
 //! showing live data.
 
+use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 
 use tokio::task::JoinSet;
 
@@ -70,6 +71,19 @@ impl UsageProvider for AnyProvider {
     }
 }
 
+impl AnyProvider {
+    /// The credentials file behind this provider, if it has one.
+    fn credentials_path(&self) -> Option<PathBuf> {
+        match self {
+            Self::Claude(provider) => provider.credentials_path(),
+            Self::Codex(provider) => provider.credentials_path(),
+            Self::OpencodeGo(provider) => provider.credentials_path(),
+            #[cfg(test)]
+            Self::Stub(provider) => provider.credentials_path.clone(),
+        }
+    }
+}
+
 /// The set of providers to poll.
 pub struct ProviderRegistry {
     providers: Vec<AnyProvider>,
@@ -105,6 +119,18 @@ impl ProviderRegistry {
     /// The provider occupying an index, if it exists.
     pub fn id_at(&self, index: usize) -> Option<ProviderId> {
         self.providers.get(index).map(UsageProvider::id)
+    }
+
+    /// When the provider's credentials file was last modified.
+    ///
+    /// `None` when the provider has no file or it cannot be inspected; a file
+    /// appearing or disappearing therefore also registers as a change. Only
+    /// metadata is read, never the contents.
+    pub fn credentials_stamp_at(&self, index: usize) -> Option<SystemTime> {
+        let path = self.providers.get(index)?.credentials_path()?;
+        std::fs::metadata(path)
+            .and_then(|meta| meta.modified())
+            .ok()
     }
 
     /// Poll every provider concurrently and collect the outcomes.
@@ -183,6 +209,7 @@ pub(crate) mod tests {
     pub struct StubProvider {
         id: ProviderId,
         outcome: StubOutcome,
+        pub credentials_path: Option<PathBuf>,
     }
 
     pub enum StubOutcome {
@@ -200,7 +227,11 @@ pub(crate) mod tests {
 
     impl StubProvider {
         pub fn new(id: ProviderId, outcome: StubOutcome) -> Self {
-            Self { id, outcome }
+            Self {
+                id,
+                outcome,
+                credentials_path: None,
+            }
         }
     }
 

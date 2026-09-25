@@ -8,7 +8,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: calc(6px * var(--ui-scale));
 
   color: var(--text);
 }
@@ -24,6 +24,8 @@
 .badge-ring svg {
   position: absolute;
   inset: 0;
+  width: 100%;
+  height: 100%;
 }
 
 .badge-ring-track {
@@ -66,14 +68,14 @@
 
 .badge-quotas {
   display: flex;
-  gap: 14px;
+  gap: calc(14px * var(--ui-scale));
 }
 
 .badge-quota {
   display: grid;
   justify-items: center;
-  gap: 3px;
-  min-width: 28px;
+  gap: calc(3px * var(--ui-scale));
+  min-width: calc(28px * var(--ui-scale));
 }
 
 .badge-window-label {
@@ -83,7 +85,7 @@
 }
 
 .badge-status {
-  min-height: 24px;
+  min-height: calc(24px * var(--ui-scale));
   display: grid;
   align-items: center;
 }

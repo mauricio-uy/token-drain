@@ -37,6 +37,11 @@ impl CodexProvider {
         self
     }
 
+    /// The credentials file this provider reads, when it can be located.
+    pub fn credentials_path(&self) -> Option<PathBuf> {
+        self.resolve_credentials_path().ok()
+    }
+
     fn resolve_credentials_path(&self) -> Result<PathBuf, UsageError> {
         match &self.credentials_path {
             Some(path) => Ok(path.clone()),

@@ -23,13 +23,41 @@
   --level-high: #f26d3d;
   --level-track: #2a2a33;
 
-  /* Rail geometry. */
-  --rail-width: 108px;
-  --rail-radius: 28px;
-  --rail-corner: 22px;
-  --rail-padding: 22px;
-  --rail-gap: 26px;
+  --card-shadow: 0 12px 32px rgb(0 0 0 / 45%), 0 2px 6px rgb(0 0 0 / 35%);
 
-  --badge-size: 64px;
-  --badge-ring: 4px;
+  /* Rail geometry. Every measurement is multiplied by the user's size
+     setting; text sizes deliberately are not, so shrinking the rail never
+     makes a figure harder to read. Set on the root element at runtime; the
+     value here mirrors `DEFAULT_UI_SCALE`, so the first paint matches it. */
+  --ui-scale: 0.7;
+
+  --rail-width: calc(108px * var(--ui-scale));
+  --rail-radius: calc(28px * var(--ui-scale));
+  --rail-corner: calc(22px * var(--ui-scale));
+  --rail-padding: calc(22px * var(--ui-scale));
+  --rail-gap: calc(26px * var(--ui-scale));
+
+  --badge-size: calc(64px * var(--ui-scale));
+  --badge-ring: calc(4px * var(--ui-scale));
+}
+
+/*
+ * Light theme. Only colour changes. The severity hues are darkened so they keep
+ * their contrast against a white surface: the dark theme's yellow in particular
+ * is close to invisible on white.
+ */
+:root[data-theme="light"] {
+  --surface: #ffffff;
+  --surface-raised: #f4f4f7;
+  --surface-line: #d9d9e0;
+
+  --text: #16161a;
+  --text-muted: #5f5f6b;
+
+  --level-ok: #1e9e5a;
+  --level-warn: #b98c00;
+  --level-high: #dd5424;
+  --level-track: #e3e3ea;
+
+  --card-shadow: 0 10px 28px rgb(0 0 0 / 14%), 0 1px 4px rgb(0 0 0 / 12%);
 }

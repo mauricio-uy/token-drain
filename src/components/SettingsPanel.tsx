@@ -3,7 +3,14 @@ import { useEffect, useId, useState } from "react";
 import { ProviderLogo } from "./ProviderLogo";
 import { UpdateStatus } from "./UpdateStatus";
 import { RepositoryLink } from "./RepositoryLink";
-import { useSettings, type RailSide, type Settings } from "../lib/settings";
+import {
+  applyTheme,
+  getVerticalOffsetRange,
+  useSettings,
+  type RailSide,
+  type Settings,
+  type Theme,
+} from "../lib/settings";
 import { getAppVersion, openLogDirectory } from "../lib/diagnostics";
 
 /**
@@ -26,6 +33,10 @@ const INTERVALS: { seconds: number; label: string }[] = [
 
 /** Mirrors `MAX_VERTICAL_OFFSET` in `src-tauri/src/settings.rs`. */
 const MAX_VERTICAL_OFFSET = 400;
+
+/** Mirror `MIN_UI_SCALE` and `MAX_UI_SCALE` in `src-tauri/src/settings.rs`. */
+const MIN_UI_SCALE = 70;
+const MAX_UI_SCALE = 100;
 
 /**
  * Marks offered as chips.
@@ -95,6 +106,125 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
+/**
+ * A slider that saves when released rather than on every step of a drag.
+ *
+ * Each save re-docks or re-lays out the rail, and a stream of them mid-drag
+ * makes the slider stutter. The value on screen follows the pointer the whole
+ * time; only the save waits.
+ */
+function ReleasedSlider({
+  label,
+  min,
+  max,
+  step,
+  value,
+  describe,
+  reset,
+  onCommit,
+}: {
+  label: string;
+  min: number;
+  max: number;
+  step: number;
+  value: number;
+  describe: (value: number) => string;
+  /** The button that returns the slider to its default. */
+  reset: { value: number; label: string };
+  onCommit: (value: number) => void;
+}) {
+  const [draft, setDraft] = useState<number | null>(null);
+
+  // A stored value beyond the range sits at the end it overshoots.
+  const shown = Math.min(max, Math.max(min, draft ?? value));
+
+  const commit = () => {
+    if (draft === null) return;
+    setDraft(null);
+    if (draft !== value) onCommit(draft);
+  };
+
+  return (
+    <>
+      <div className="settings-slider">
+        <input
+          type="range"
+          aria-label={label}
+          aria-valuetext={describe(shown)}
+          min={min}
+          max={max}
+          step={step}
+          value={shown}
+          onChange={(event) => setDraft(Number(event.target.value))}
+          onPointerUp={commit}
+          onKeyUp={commit}
+          onBlur={commit}
+        />
+        <button
+          type="button"
+          className="settings-reset"
+          onClick={() => {
+            setDraft(null);
+            onCommit(reset.value);
+          }}
+          disabled={shown === reset.value}
+        >
+          {reset.label}
+        </button>
+      </div>
+      <p className="settings-hint">{describe(shown)}</p>
+    </>
+  );
+}
+
+/**
+ * The vertical position slider.
+ *
+ * Its ends are the limits of travel on the rail's current monitor, so every
+ * step moves the rail and both ends reach an edge.
+ */
+function VerticalPosition({
+  side,
+  offset,
+  onCommit,
+}: {
+  side: RailSide;
+  offset: number;
+  onCommit: (offset: number) => void;
+}) {
+  const [range, setRange] = useState<[number, number]>([
+    -MAX_VERTICAL_OFFSET,
+    MAX_VERTICAL_OFFSET,
+  ]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getVerticalOffsetRange(side).then(
+      (next) => {
+        if (!cancelled) setRange(next);
+      },
+      // Keep the fallback range: the backend clamps whatever is chosen anyway.
+      () => {},
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [side]);
+
+  return (
+    <ReleasedSlider
+      label="Vertical position"
+      min={range[0]}
+      max={range[1]}
+      step={1}
+      value={offset}
+      describe={describeOffset}
+      reset={{ value: 0, label: "Centre" }}
+      onCommit={onCommit}
+    />
+  );
+}
+
 /** Render live settings controls that persist each accepted edit immediately. */
 export function SettingsPanel() {
   const { settings, providers, launchAtLogin, error, update, updateLaunchAtLogin } =
@@ -105,6 +235,12 @@ export function SettingsPanel() {
   useEffect(() => {
     void getAppVersion().then(setAppVersion, () => setDiagnosticsError("Could not read app version."));
   }, []);
+
+  // This window follows the theme it is editing, so a change is seen at once.
+  const theme = settings?.theme;
+  useEffect(() => {
+    if (theme) applyTheme(theme);
+  }, [theme]);
 
   // Nothing is rendered until the real values arrive. Showing defaults first
   // would flash a configuration the user does not have, and any control touched
@@ -186,7 +322,23 @@ export function SettingsPanel() {
         </select>
       </Section>
 
-      <Section title="Appearance" hint="Where the rail sits on screen.">
+      <Section title="Appearance" hint="How the app looks, where the rail sits, and how big it is.">
+        <Field label="Theme">
+          <div className="settings-choices" role="radiogroup" aria-label="Theme">
+            {(["dark", "light"] as Theme[]).map((theme) => (
+              <label key={theme} className="settings-check">
+                <input
+                  type="radio"
+                  name="theme"
+                  checked={settings.theme === theme}
+                  onChange={() => update({ theme })}
+                />
+                {theme === "dark" ? "Dark" : "Light"}
+              </label>
+            ))}
+          </div>
+        </Field>
+
         <Field label="Side">
           <div className="settings-choices" role="radiogroup" aria-label="Side">
             {(["left", "right"] as RailSide[]).map((side) => (
@@ -204,27 +356,25 @@ export function SettingsPanel() {
         </Field>
 
         <Field label="Vertical position">
-          <div className="settings-slider">
-            <input
-              type="range"
-              aria-label="Vertical position"
-              aria-valuetext={describeOffset(settings.verticalOffset)}
-              min={-MAX_VERTICAL_OFFSET}
-              max={MAX_VERTICAL_OFFSET}
-              step={10}
-              value={settings.verticalOffset}
-              onChange={(event) => update({ verticalOffset: Number(event.target.value) })}
-            />
-            <button
-              type="button"
-              className="settings-reset"
-              onClick={() => update({ verticalOffset: 0 })}
-              disabled={settings.verticalOffset === 0}
-            >
-              Centre
-            </button>
-          </div>
-          <p className="settings-hint">{describeOffset(settings.verticalOffset)}</p>
+          <VerticalPosition
+            side={settings.railSide}
+            offset={settings.verticalOffset}
+            onCommit={(verticalOffset) => update({ verticalOffset })}
+          />
+        </Field>
+
+        <Field label="Size">
+          <ReleasedSlider
+            label="Size"
+            min={MIN_UI_SCALE}
+            max={MAX_UI_SCALE}
+            step={5}
+            value={settings.uiScale}
+            describe={(scale) =>
+              scale === MAX_UI_SCALE ? "Full size" : `${scale}% of full size. Text keeps its size.`}
+            reset={{ value: MAX_UI_SCALE, label: "Full size" }}
+            onCommit={(uiScale) => update({ uiScale })}
+          />
         </Field>
       </Section>
 

@@ -2,6 +2,7 @@
 
 pub mod credentials;
 pub mod fetch;
+pub mod refresh;
 pub mod types;
 
 use std::path::PathBuf;
@@ -12,10 +13,12 @@ use crate::providers::error::UsageError;
 use crate::providers::provider::UsageProvider;
 use crate::providers::usage::{ProviderId, ProviderUsage};
 
-use credentials::{default_credentials_path, read_credentials_from};
+use credentials::{default_credentials_path, read_credentials_from, ClaudeCredentials};
 use fetch::fetch_claude_usage;
+use refresh::{exchange_refresh_token, needs_refresh, write_renewed, WriteBack};
 
-/// Reads the Claude CLI's stored token and queries the Claude usage endpoint.
+/// Reads the Claude CLI's stored token and queries the Claude usage endpoint,
+/// renewing the token first when it has expired.
 pub struct ClaudeProvider {
     client: Client,
     /// Overridable so tests can point at a fixture instead of the real home
@@ -39,6 +42,11 @@ impl ClaudeProvider {
         self
     }
 
+    /// The credentials file this provider reads, when it can be located.
+    pub fn credentials_path(&self) -> Option<PathBuf> {
+        self.resolve_credentials_path().ok()
+    }
+
     fn resolve_credentials_path(&self) -> Result<PathBuf, UsageError> {
         match &self.credentials_path {
             Some(path) => Ok(path.clone()),
@@ -54,10 +62,54 @@ impl UsageProvider for ClaudeProvider {
 
     async fn fetch(&self) -> Result<ProviderUsage, UsageError> {
         let path = self.resolve_credentials_path()?;
-        let credentials = read_credentials_from(&path)?;
+        let mut credentials = read_credentials_from(&path)?;
         let now_ms = chrono::Utc::now().timestamp_millis();
 
-        fetch_claude_usage(&self.client, &credentials.access_token, now_ms).await
+        let mut renewed = false;
+        if needs_refresh(credentials.expires_at, now_ms) && credentials.refresh_token.is_some() {
+            credentials = self.renew(&path, credentials, now_ms).await?;
+            renewed = true;
+        }
+
+        match fetch_claude_usage(&self.client, &credentials.access_token, now_ms).await {
+            // A 401 with a token we believed valid: the expiry was unknown or
+            // wrong. Renew once and retry; a second 401 is final.
+            Err(UsageError::Unauthorized) if !renewed && credentials.refresh_token.is_some() => {
+                let credentials = self.renew(&path, credentials, now_ms).await?;
+                fetch_claude_usage(&self.client, &credentials.access_token, now_ms).await
+            }
+            result => result,
+        }
+    }
+}
+
+impl ClaudeProvider {
+    /// Exchange the stored refresh token and persist the result.
+    ///
+    /// When another client renewed the file while the exchange was in flight,
+    /// its tokens win and are re-read; ours are discarded unwritten.
+    async fn renew(
+        &self,
+        path: &std::path::Path,
+        credentials: ClaudeCredentials,
+        now_ms: i64,
+    ) -> Result<ClaudeCredentials, UsageError> {
+        let Some(refresh_token) = credentials.refresh_token.as_deref() else {
+            return Ok(credentials);
+        };
+
+        let tokens = exchange_refresh_token(&self.client, refresh_token, now_ms).await?;
+
+        match write_renewed(path, refresh_token, &tokens)? {
+            WriteBack::Written => Ok(ClaudeCredentials {
+                access_token: tokens.access_token,
+                refresh_token: tokens
+                    .refresh_token
+                    .or_else(|| credentials.refresh_token.clone()),
+                expires_at: tokens.expires_at,
+            }),
+            WriteBack::Superseded => Ok(read_credentials_from(path)?),
+        }
     }
 }
 

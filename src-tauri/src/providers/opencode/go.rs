@@ -21,6 +21,11 @@ impl GoProvider {
     pub fn new(client: Client) -> Self {
         Self { client }
     }
+
+    /// The credentials file this provider reads, when it can be located.
+    pub fn credentials_path(&self) -> Option<std::path::PathBuf> {
+        credentials::api_path().ok()
+    }
 }
 
 impl UsageProvider for GoProvider {

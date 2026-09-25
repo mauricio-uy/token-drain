@@ -1,6 +1,6 @@
 [package]
 name = "token-drain"
-version = "0.1.1"
+version = "0.2.0"
 description = "Live usage and rate-limit status for AI subscriptions"
 authors = ["mauricio-uy"]
 edition = "2021"

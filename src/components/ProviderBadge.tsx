@@ -95,7 +95,7 @@ export function ProviderBadge({
           <QuotaRing radius={23} percent={weeklyPercent} window="7d" />
         </svg>
         <span className="badge-mark">
-          <ProviderLogo provider={view.provider} size={22} />
+          <ProviderLogo provider={view.provider} size="calc(22px * var(--ui-scale))" />
         </span>
       </span>
       {view.usage ? (

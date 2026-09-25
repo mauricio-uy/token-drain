@@ -7,6 +7,14 @@ import { liveSnapshot } from "./liveSnapshot";
 /** Mirrors `RailSide` in `src-tauri/src/window/placement.rs`. */
 export type RailSide = "right" | "left";
 
+/** Mirrors `AppTheme` in `src-tauri/src/settings.rs`. */
+export type Theme = "dark" | "light";
+
+/** Apply a theme to the current document; the colour tokens key off it. */
+export function applyTheme(theme: Theme): void {
+  document.documentElement.dataset.theme = theme;
+}
+
 /** Persisted preferences mirrored from the Rust settings contract. */
 export type Settings = {
   pollIntervalSeconds: number;
@@ -18,6 +26,9 @@ export type Settings = {
   railSide: RailSide;
   /** Nudge from vertical centre, in logical pixels. Positive moves down. */
   verticalOffset: number;
+  /** Size of the rail's geometry as a percentage; text is never scaled. */
+  uiScale: number;
+  theme: Theme;
   notificationsEnabled: boolean;
   /** Percentages worth interrupting at. Sorted and deduplicated by the backend. */
   notificationThresholds: number[];
@@ -35,15 +46,40 @@ export async function openSettingsWindow(): Promise<void> {
   await invoke("open_settings");
 }
 
-/** Follow docking preferences in the rail without loading the settings form. */
-export function useRailSide(): RailSide {
-  const [side, setSide] = useState<RailSide>("right");
+/** How the rail should look, as far as the rail itself needs to know. */
+export type RailAppearance = {
+  side: RailSide;
+  /** Geometry scale as a fraction, 1 being full size. */
+  scale: number;
+  theme: Theme;
+};
+
+/** Follow appearance preferences in the rail without loading the settings form. */
+export function useRailAppearance(): RailAppearance {
+  const [appearance, setAppearance] = useState<RailAppearance>({
+    side: "right",
+    scale: 0.7,
+    theme: "dark",
+  });
   useEffect(() => liveSnapshot(
     (receive) => listen<Settings>("settings-updated", (event) => receive(event.payload)),
     getSettings,
-    (settings) => setSide(settings.railSide),
+    (settings) => setAppearance((current) => {
+      const next = {
+        side: settings.railSide,
+        scale: settings.uiScale / 100,
+        theme: settings.theme,
+      };
+      // Keep the same object when nothing changed, so unrelated settings
+      // edits do not re-render the rail.
+      return current.side === next.side
+        && current.scale === next.scale
+        && current.theme === next.theme
+        ? current
+        : next;
+    }),
   ), []);
-  return side;
+  return appearance;
 }
 
 /**
@@ -76,6 +112,14 @@ export async function listProviders(): Promise<string[]> {
  */
 export async function saveSettings(value: Settings): Promise<Settings> {
   return invoke<Settings>("set_settings", { value });
+}
+
+/**
+ * The vertical offsets that move the rail on its current monitor, as
+ * `[furthest up, furthest down]` in logical pixels.
+ */
+export async function getVerticalOffsetRange(side: RailSide): Promise<[number, number]> {
+  return invoke<[number, number]>("get_vertical_offset_range", { side });
 }
 
 type SettingsForm = {

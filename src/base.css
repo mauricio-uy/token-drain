@@ -70,6 +70,10 @@ img {
   color-scheme: dark;
 }
 
+[data-surface="settings"][data-theme="light"] {
+  color-scheme: light;
+}
+
 [data-surface="settings"]::-webkit-scrollbar,
 [data-surface="settings"] *::-webkit-scrollbar {
   width: 10px;

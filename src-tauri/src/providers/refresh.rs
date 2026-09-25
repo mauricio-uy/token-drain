@@ -9,12 +9,13 @@
 //! backing-off provider back into a fast poll.
 
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 
 use tokio::sync::{mpsc, Notify};
 use tokio::task::JoinHandle;
 use tokio::time::Instant;
 
+use crate::providers::error::UsageError;
 use crate::providers::registry::{ProviderFetch, ProviderRegistry};
 use crate::providers::schedule::{RefreshSchedule, DEFAULT_POLL_INTERVAL, MIN_POLL_INTERVAL};
 use crate::providers::usage::ProviderId;
@@ -60,11 +61,47 @@ impl RefreshPolicy for RefreshConfig {
     }
 }
 
+/// How often a provider parked on a credential failure has its credentials
+/// file checked for changes. Only file metadata is read, so this is cheap; the
+/// poll floor still governs how soon the provider is actually re-polled.
+pub const CREDENTIAL_CHECK_INTERVAL: Duration = Duration::from_secs(15);
+
 /// State the loop keeps for one provider.
 struct ProviderState {
     schedule: RefreshSchedule,
     due_at: Instant,
     last_polled: Option<Instant>,
+    /// Set while the last poll failed in a way only new credentials can fix.
+    awaiting_credentials: bool,
+    /// Modification time of the credentials file as of the last poll.
+    credentials_stamp: Option<SystemTime>,
+}
+
+/// Bring forward every provider whose credentials changed while it was
+/// waiting for them.
+///
+/// Signing in again through a CLI or a desktop app that shares the credentials
+/// file must not leave the badge showing "sign in" for up to the backoff
+/// ceiling. The floor still applies, exactly as for a manual refresh.
+fn wake_on_new_credentials(
+    registry: &ProviderRegistry,
+    states: &mut [ProviderState],
+    now: Instant,
+) {
+    for (index, state) in states.iter_mut().enumerate() {
+        if !state.awaiting_credentials {
+            continue;
+        }
+        if registry.credentials_stamp_at(index) == state.credentials_stamp {
+            continue;
+        }
+        state.awaiting_credentials = false;
+        let earliest = match state.last_polled {
+            Some(last) => (last + MIN_POLL_INTERVAL).max(now),
+            None => now,
+        };
+        state.due_at = state.due_at.min(earliest);
+    }
 }
 
 /// Bring every provider forward to the earliest moment the floor allows.
@@ -102,6 +139,8 @@ pub async fn run_refresh_loop(
             schedule: RefreshSchedule::new(policy.interval()),
             due_at: now,
             last_polled: None,
+            awaiting_credentials: false,
+            credentials_stamp: None,
         })
         .collect();
 
@@ -115,6 +154,8 @@ pub async fn run_refresh_loop(
         for state in &mut states {
             state.schedule.set_interval(interval);
         }
+
+        wake_on_new_credentials(&registry, &mut states, now);
 
         let enabled = |index: usize| {
             registry
@@ -138,7 +179,15 @@ pub async fn run_refresh_loop(
                 .iter()
                 .enumerate()
                 .filter(|(index, _)| enabled(*index))
-                .map(|(_, state)| state.due_at)
+                .map(|(_, state)| {
+                    // A provider waiting for credentials is looked at again
+                    // soon, so a fresh sign-in is noticed promptly.
+                    if state.awaiting_credentials {
+                        state.due_at.min(now + CREDENTIAL_CHECK_INTERVAL)
+                    } else {
+                        state.due_at
+                    }
+                })
                 .min();
 
             match next {
@@ -185,6 +234,13 @@ pub async fn run_refresh_loop(
                 };
                 state.last_polled = Some(Instant::now());
                 state.due_at = Instant::now() + delay;
+                // Stamped after the fetch, so a provider rewriting its own
+                // credentials (a token renewal) does not wake itself.
+                state.awaiting_credentials = fetch
+                    .result
+                    .as_ref()
+                    .is_err_and(UsageError::awaits_new_credentials);
+                state.credentials_stamp = registry.credentials_stamp_at(*index);
             }
         }
 
@@ -210,7 +266,8 @@ pub fn spawn_refresh_loop(
 mod tests {
     use super::*;
     use crate::providers::error::UsageError;
-    use crate::providers::registry::tests::{stub, StubOutcome};
+    use crate::providers::registry::tests::{stub, StubOutcome, StubProvider};
+    use crate::providers::registry::AnyProvider;
     use crate::providers::schedule::{MAX_BACKOFF, MIN_POLL_INTERVAL};
     use crate::providers::usage::ProviderId;
 
@@ -443,6 +500,46 @@ mod tests {
         // back in is automatic.
         tokio::time::advance(Duration::from_secs(10)).await;
         assert_eq!(next_batch(&mut receiver).await.len(), 1);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn new_credentials_revive_a_provider_parked_at_the_ceiling() {
+        // Signing in again elsewhere (a CLI, or a desktop app sharing the same
+        // file) must be picked up without waiting out the ceiling.
+        let path = std::env::temp_dir().join("token-drain-refresh-loop-credentials.json");
+        std::fs::write(&path, "{}").expect("should write fixture");
+        let file = std::fs::File::options()
+            .write(true)
+            .open(&path)
+            .expect("should open fixture");
+        file.set_modified(SystemTime::UNIX_EPOCH + Duration::from_secs(1_000))
+            .expect("should set the modification time");
+
+        let mut provider = StubProvider::new(ProviderId::Codex, StubOutcome::Fails);
+        provider.credentials_path = Some(path.clone());
+        let registry = Arc::new(ProviderRegistry::new(vec![AnyProvider::Stub(provider)]));
+        let (sender, mut receiver) = mpsc::channel(8);
+        let _task = spawn_refresh_loop(
+            registry,
+            Arc::new(config()),
+            sender,
+            Arc::new(Notify::new()),
+        );
+
+        next_batch(&mut receiver).await;
+
+        // Unchanged credentials: nothing happens past the floor.
+        tokio::time::advance(MIN_POLL_INTERVAL + CREDENTIAL_CHECK_INTERVAL).await;
+        assert!(receiver.try_recv().is_err(), "re-polled without a change");
+
+        file.set_modified(SystemTime::UNIX_EPOCH + Duration::from_secs(2_000))
+            .expect("should set the modification time");
+        tokio::time::advance(CREDENTIAL_CHECK_INTERVAL).await;
+        let batch = next_batch(&mut receiver).await;
+
+        drop(file);
+        std::fs::remove_file(&path).ok();
+        assert_eq!(providers_in(&batch), vec![ProviderId::Codex]);
     }
 
     #[tokio::test(start_paused = true)]
