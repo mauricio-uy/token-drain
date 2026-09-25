@@ -12,7 +12,7 @@
   border-radius: calc(18px * var(--ui-scale));
   color: var(--text);
   font: 400 12px/1.35 system-ui, sans-serif;
-  box-shadow: 0 12px 32px rgb(0 0 0 / 45%), 0 2px 6px rgb(0 0 0 / 35%);
+  box-shadow: var(--card-shadow);
 }
 
 /*

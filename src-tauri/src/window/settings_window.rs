@@ -45,18 +45,22 @@ pub fn open(app: &AppHandle) -> tauri::Result<()> {
         return Ok(());
     }
 
+    let theme = app
+        .try_state::<std::sync::Arc<crate::settings::SettingsStore>>()
+        .map(|settings| settings.get().theme.native())
+        .unwrap_or(Theme::Dark);
+
     let mut builder = WebviewWindowBuilder::new(
         app,
         SETTINGS_WINDOW_LABEL,
         WebviewUrl::App("index.html".into()),
     )
     .title("Token Drain settings")
-    // Forced rather than left to follow the desktop. The panel is dark on every
-    // machine, so a system-light title bar would put a white strip above a black
-    // window on exactly the desktops that asked for light. On Windows this sets
+    // Forced to the app's own theme rather than left to follow the desktop, so
+    // the title bar always matches the panel beneath it. On Windows this sets
     // the frame's immersive dark mode, which is the only handle CSS does not
     // have: the title bar is drawn by the compositor, not by the page.
-    .theme(Some(Theme::Dark))
+    .theme(Some(theme))
     // There is no one content height any more: every section starts collapsed
     // and the user opens what they need, so the panel is a short list until it
     // is not. Sized to hold the closed list with room for a section or two open

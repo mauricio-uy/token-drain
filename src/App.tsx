@@ -3,7 +3,7 @@ import { Rail } from "./components/Rail";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { currentSurface } from "./lib/surface";
 import { useUsage } from "./lib/usage";
-import { useRailAppearance } from "./lib/settings";
+import { applyTheme, useRailAppearance } from "./lib/settings";
 import { useAutomaticUpdates } from "./lib/updates";
 
 // Keep the gallery module and its stylesheet out of production bundles.
@@ -18,12 +18,14 @@ const BadgeGallery = import.meta.env.DEV && import.meta.env.VITE_DEBUG_BADGES ==
  */
 function RailSurface() {
   useAutomaticUpdates();
-  const { side, scale } = useRailAppearance();
+  const { side, scale, theme } = useRailAppearance();
 
   // On the root element, where the geometry tokens that consume it are defined.
   useEffect(() => {
     document.documentElement.style.setProperty("--ui-scale", String(scale));
   }, [scale]);
+
+  useEffect(() => applyTheme(theme), [theme]);
 
   return <Rail views={useUsage()} side={side} />;
 }

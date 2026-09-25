@@ -4,10 +4,12 @@ import { ProviderLogo } from "./ProviderLogo";
 import { UpdateStatus } from "./UpdateStatus";
 import { RepositoryLink } from "./RepositoryLink";
 import {
+  applyTheme,
   getVerticalOffsetRange,
   useSettings,
   type RailSide,
   type Settings,
+  type Theme,
 } from "../lib/settings";
 import { getAppVersion, openLogDirectory } from "../lib/diagnostics";
 
@@ -234,6 +236,12 @@ export function SettingsPanel() {
     void getAppVersion().then(setAppVersion, () => setDiagnosticsError("Could not read app version."));
   }, []);
 
+  // This window follows the theme it is editing, so a change is seen at once.
+  const theme = settings?.theme;
+  useEffect(() => {
+    if (theme) applyTheme(theme);
+  }, [theme]);
+
   // Nothing is rendered until the real values arrive. Showing defaults first
   // would flash a configuration the user does not have, and any control touched
   // in that moment would save the wrong thing.
@@ -314,7 +322,23 @@ export function SettingsPanel() {
         </select>
       </Section>
 
-      <Section title="Appearance" hint="Where the rail sits on screen, and how big it is.">
+      <Section title="Appearance" hint="How the app looks, where the rail sits, and how big it is.">
+        <Field label="Theme">
+          <div className="settings-choices" role="radiogroup" aria-label="Theme">
+            {(["dark", "light"] as Theme[]).map((theme) => (
+              <label key={theme} className="settings-check">
+                <input
+                  type="radio"
+                  name="theme"
+                  checked={settings.theme === theme}
+                  onChange={() => update({ theme })}
+                />
+                {theme === "dark" ? "Dark" : "Light"}
+              </label>
+            ))}
+          </div>
+        </Field>
+
         <Field label="Side">
           <div className="settings-choices" role="radiogroup" aria-label="Side">
             {(["left", "right"] as RailSide[]).map((side) => (

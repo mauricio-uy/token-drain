@@ -58,7 +58,7 @@
   width: calc(4px * var(--ui-scale));
   height: calc(88px * var(--ui-scale));
   border-radius: 999px 0 0 999px;
-  background: #000000;
+  background: var(--surface);
 }
 
 .rail-trigger[aria-hidden="true"] {
@@ -179,6 +179,12 @@
  * quarter circle centred on the corner nearest the rail, opaque outside it. The
  * half-pixel gap between the two gradient stops is what keeps the curve from
  * aliasing into a visible staircase.
+ *
+ * Each fillet is one pixel taller than the curve and reaches that pixel into
+ * the rail. The extra row is outside the quarter circle, so it is opaque. The
+ * rail's scaled geometry lands on fractional pixels, and without the overlap
+ * the rounding leaves a hairline seam between fillet and rail through which
+ * the desktop shows.
  */
 .rail::before,
 .rail::after {
@@ -186,7 +192,7 @@
   position: absolute;
   right: 0;
   width: var(--rail-corner);
-  height: var(--rail-corner);
+  height: calc(var(--rail-corner) + 1px);
   pointer-events: none;
 }
 

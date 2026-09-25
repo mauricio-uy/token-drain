@@ -11,6 +11,7 @@ and [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Appearance setting to size the rail between 70% and 100%. Only the layout
   shrinks; text keeps its size. The rail now starts at 70%, including for
   existing installs, and keeps whatever size the user picks.
+- Light theme, chosen under Appearance. Dark remains the default.
 
 ### Fixed
 

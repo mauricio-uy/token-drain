@@ -350,6 +350,16 @@ pub async fn set_settings(
         }
     }
 
+    if previous.theme != stored.theme {
+        if let Some(window) = tauri::Manager::get_webview_window(
+            &app,
+            crate::window::settings_window::SETTINGS_WINDOW_LABEL,
+        ) {
+            // Failing here leaves only the title bar in the old theme.
+            let _ = window.set_theme(Some(stored.theme.native()));
+        }
+    }
+
     if previous.disabled_providers != stored.disabled_providers
         && tauri::Emitter::emit(&app, USAGE_UPDATED_EVENT, state.views()).is_err()
     {

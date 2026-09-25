@@ -7,6 +7,14 @@ import { liveSnapshot } from "./liveSnapshot";
 /** Mirrors `RailSide` in `src-tauri/src/window/placement.rs`. */
 export type RailSide = "right" | "left";
 
+/** Mirrors `AppTheme` in `src-tauri/src/settings.rs`. */
+export type Theme = "dark" | "light";
+
+/** Apply a theme to the current document; the colour tokens key off it. */
+export function applyTheme(theme: Theme): void {
+  document.documentElement.dataset.theme = theme;
+}
+
 /** Persisted preferences mirrored from the Rust settings contract. */
 export type Settings = {
   pollIntervalSeconds: number;
@@ -20,6 +28,7 @@ export type Settings = {
   verticalOffset: number;
   /** Size of the rail's geometry as a percentage; text is never scaled. */
   uiScale: number;
+  theme: Theme;
   notificationsEnabled: boolean;
   /** Percentages worth interrupting at. Sorted and deduplicated by the backend. */
   notificationThresholds: number[];
@@ -42,19 +51,32 @@ export type RailAppearance = {
   side: RailSide;
   /** Geometry scale as a fraction, 1 being full size. */
   scale: number;
+  theme: Theme;
 };
 
 /** Follow appearance preferences in the rail without loading the settings form. */
 export function useRailAppearance(): RailAppearance {
-  const [appearance, setAppearance] = useState<RailAppearance>({ side: "right", scale: 0.7 });
+  const [appearance, setAppearance] = useState<RailAppearance>({
+    side: "right",
+    scale: 0.7,
+    theme: "dark",
+  });
   useEffect(() => liveSnapshot(
     (receive) => listen<Settings>("settings-updated", (event) => receive(event.payload)),
     getSettings,
     (settings) => setAppearance((current) => {
-      const next = { side: settings.railSide, scale: settings.uiScale / 100 };
+      const next = {
+        side: settings.railSide,
+        scale: settings.uiScale / 100,
+        theme: settings.theme,
+      };
       // Keep the same object when nothing changed, so unrelated settings
       // edits do not re-render the rail.
-      return current.side === next.side && current.scale === next.scale ? current : next;
+      return current.side === next.side
+        && current.scale === next.scale
+        && current.theme === next.theme
+        ? current
+        : next;
     }),
   ), []);
   return appearance;

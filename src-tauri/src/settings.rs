@@ -52,6 +52,26 @@ pub const MAX_UI_SCALE: u8 = 100;
 /// as little of the screen as possible; the user can enlarge it from there.
 pub const DEFAULT_UI_SCALE: u8 = MIN_UI_SCALE;
 
+/// Colour theme of every window the app draws.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum AppTheme {
+    #[default]
+    Dark,
+    Light,
+}
+
+impl AppTheme {
+    /// The matching native theme, for the parts CSS cannot reach such as the
+    /// settings window's title bar.
+    pub fn native(self) -> tauri::Theme {
+        match self {
+            Self::Dark => tauri::Theme::Dark,
+            Self::Light => tauri::Theme::Light,
+        }
+    }
+}
+
 /// Everything the user can change.
 ///
 /// Providers are stored as the **disabled** set rather than the enabled one, so
@@ -73,6 +93,7 @@ pub struct Settings {
     pub vertical_offset: i32,
     /// Size of the rail's geometry, as a percentage of full size.
     pub ui_scale: u8,
+    pub theme: AppTheme,
     pub notifications_enabled: bool,
     /// Percentages worth interrupting the user at. A set, so it is inherently
     /// sorted and free of duplicates.
@@ -96,6 +117,7 @@ impl Default for Settings {
             rail_side: RailSide::default(),
             vertical_offset: 0,
             ui_scale: DEFAULT_UI_SCALE,
+            theme: AppTheme::default(),
             notifications_enabled: true,
             notification_thresholds: BTreeSet::from(DEFAULT_THRESHOLDS),
             automatic_updates_enabled: false,
@@ -302,6 +324,7 @@ mod tests {
             rail_side: RailSide::Left,
             vertical_offset: -120,
             ui_scale: 85,
+            theme: AppTheme::Light,
             notifications_enabled: false,
             notification_thresholds: BTreeSet::from([50, 90]),
             automatic_updates_enabled: true,
@@ -374,6 +397,7 @@ mod tests {
         assert_eq!(settings.vertical_offset, MAX_VERTICAL_OFFSET);
         // Absent from this older file, so it takes its default.
         assert_eq!(settings.ui_scale, DEFAULT_UI_SCALE);
+        assert_eq!(settings.theme, AppTheme::Dark);
         // Values that were already in range are kept, not reset along with the
         // ones that were not.
         assert_eq!(settings.rail_side, RailSide::Left);
@@ -451,6 +475,7 @@ mod tests {
                 "notificationsEnabled",
                 "pollIntervalSeconds",
                 "railSide",
+                "theme",
                 "uiScale",
                 "verticalOffset"
             ],
